@@ -1,17 +1,19 @@
-# Proyecto MDW 2026 — <NOMBRE DEL SISTEMA>
-
-> Reemplazá este bloque en la clase 1.
+# Proyecto MDW 2026 — Cinema
 
 **Equipo:**
 
-- Nombre Apellido — responsable del repositorio (creó el repo y tiene la cuenta de Vercel)
-- Nombre Apellido
-- Nombre Apellido
-- Nombre Apellido
+- Ignacio Cainelli — responsable del repositorio
+- Rodolfo Meroi
+- Alejandro Santini
+- A designar
 
-**Producción:** https://<tu-proyecto>.vercel.app
-**Problema que resuelve:** una oración.
-**Flujo principal:** una oración.
+**Producción:** https://cinema-mdw-2026.vercel.app/
+
+**De qué se trata:** mejorar la gestión de cartelera y venta de entradas en los cines, ya que los sistemas actuales se están quedando obsoletos y todavía hay mucha operación manual. El sistema permite desde la creación y configuración de salas hasta la gestión de cartelera y la compra de entradas para el público.
+
+**Roles:** administrador (configura salas y horarios generales del cine), gestor de cartelera (asigna las películas y sus horarios a las respectivas salas) y usuarios (pueden ver la cartelera y comprar entradas).
+
+**Flujo principal:** los usuarios del cine publican la cartelera y los usuarios finales compran las entradas.
 
 ---
 
