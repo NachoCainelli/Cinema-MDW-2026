@@ -49,14 +49,14 @@ export default async function Home() {
               <code>.env.local</code>.
             </li>
             <li>
-              Correr <code>npx prisma migrate dev --name init</code> y{" "}
-              <code>npm run db:seed</code>.
+              Correr <code>pnpm db:migrate --name init</code> y{" "}
+              <code>pnpm db:seed</code>.
             </li>
           </ol>
         </section>
       ) : notas.length === 0 ? (
         <p className="mt-8 text-sm opacity-70">
-          La base está conectada pero no hay datos. Corran <code>npm run db:seed</code>.
+          La base está conectada pero no hay datos. Corran <code>pnpm db:seed</code>.
         </p>
       ) : (
         <section className="mt-8">

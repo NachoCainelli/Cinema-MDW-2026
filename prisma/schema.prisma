@@ -4,7 +4,7 @@
 // En la clase 3 lo reemplazan por el modelo de su propio dominio.
 //
 // Después de cualquier cambio en este archivo:
-//   npx prisma migrate dev --name <descripcion-del-cambio>
+//   pnpm db:migrate --name <descripcion-del-cambio>
 
 generator client {
   provider = "prisma-client-js"

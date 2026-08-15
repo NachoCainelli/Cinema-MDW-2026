@@ -11,22 +11,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: npm
+          node-version: 22.13.0
+          cache: pnpm
 
       - name: Instalar dependencias
-        run: npm ci
+        run: pnpm install --frozen-lockfile
+
+      - name: Auditar dependencias
+        run: pnpm security:audit
 
       - name: Generar cliente de Prisma
-        run: npx prisma generate
+        run: pnpm db:generate
 
       - name: Chequeo de tipos
-        run: npm run typecheck
+        run: pnpm typecheck
 
       - name: Lint
-        run: npm run lint
+        run: pnpm lint
 
       - name: Tests
-        run: npm test
+        run: pnpm test
