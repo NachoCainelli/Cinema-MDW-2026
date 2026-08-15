@@ -1,0 +1,61 @@
+// Modelo de datos del proyecto.
+//
+// Lo que hay acá abajo es un EJEMPLO MÍNIMO para que el proyecto arranque.
+// En la clase 3 lo reemplazan por el modelo de su propio dominio.
+//
+// Después de cualquier cambio en este archivo:
+//   npx prisma migrate dev --name <descripcion-del-cambio>
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+
+  // Vercel es serverless, así que hacen falta dos conexiones distintas:
+  //   DATABASE_URL → el pooler, que la app usa en cada request
+  //   DIRECT_URL   → la conexión directa, que usan las migraciones
+  // Con una sola funciona en clase y se cae en producción por agotar
+  // las conexiones de Postgres.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ¿El equipo eligió MongoDB? Se cambia el provider a "mongodb", se usa una
+// connection string de MongoDB Atlas y se sincroniza con `prisma db push`
+// en lugar de `prisma migrate dev`. El resto del proyecto no cambia.
+// Ojo: con Mongo los ids llevan @map("_id") @db.ObjectId y la integridad
+// referencial la garantiza el código, no la base.
+
+enum Rol {
+  ADMIN
+  USUARIO
+}
+
+model Usuario {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  nombre    String
+  rol       Rol      @default(USUARIO)
+  creadoEn  DateTime @default(now())
+
+  notas     Nota[]
+}
+
+// Entidad de ejemplo: bórrenla en la clase 3.
+// Muestra el patrón de una relación 1-N con su índice.
+model Nota {
+  id            String   @id @default(cuid())
+  titulo        String
+  contenido     String
+  creadaEn      DateTime @default(now())
+  actualizadaEn DateTime @updatedAt
+
+  autor         Usuario  @relation(fields: [autorId], references: [id], onDelete: Cascade)
+  autorId       String
+
+  // Índice sobre la foreign key: sin esto, listar las notas de un usuario
+  // obliga a Postgres a recorrer la tabla entera.
+  @@index([autorId])
+}
