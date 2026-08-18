@@ -1,7 +1,7 @@
 /**
  * Datos de ejemplo para desarrollo.
  *
- * Correr con: npm run db:seed
+ * Correr con: pnpm db:seed
  *
  * Por qué existe: para que los cuatro integrantes del equipo trabajen contra
  * los mismos datos y para poder mostrar el sistema sin cargar todo a mano.

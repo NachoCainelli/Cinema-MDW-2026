@@ -20,11 +20,11 @@ Este archivo lo lee tu asistente de IA (Cursor, Copilot, Claude Code, etc.) ante
 ## Comandos
 
 ```bash
-npm run dev          # desarrollo
-npm run build        # build de producción
-npm run typecheck    # chequeo de tipos
-npm test         # tests
-npx prisma migrate dev --name <nombre>
+pnpm dev                         # desarrollo
+pnpm build                       # build de producción
+pnpm typecheck                   # chequeo de tipos
+pnpm test                        # tests
+pnpm db:migrate --name <nombre>  # migración de Prisma
 ```
 
 Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca editar SQL de migraciones ya aplicadas.
@@ -56,6 +56,9 @@ Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca 
 - **La autorización se verifica siempre en el servidor**, en cada Route Handler y cada Server Action. Que la UI esconda un botón no es una medida de seguridad.
 - Nunca confiar en un `userId` o un `role` que venga del cliente: se leen de la sesión.
 - Los secretos van en variables de entorno. Ninguna variable con secretos lleva el prefijo `NEXT_PUBLIC_`.
+- pnpm es el único gestor de paquetes permitido. No commitear `package-lock.json`, `yarn.lock` ni `bun.lock`.
+- Toda dependencia nueva con scripts de instalación debe revisarse antes de aprobarla con `pnpm approve-builds`.
+- No usar `pnpm dlx`: los ejecutables del proyecto se invocan mediante scripts declarados o `pnpm exec`.
 
 ### React / Next
 - Los componentes son Server Components por defecto. `"use client"` solo si hay estado, efectos o eventos del navegador.

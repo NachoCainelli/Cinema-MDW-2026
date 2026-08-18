@@ -5,7 +5,7 @@
  * rompen el negocio. Un buen test describe un caso borde que alguien podría
  * romper sin darse cuenta.
  *
- * Correr con: npm test
+ * Correr con: pnpm test
  */
 import { describe, expect, it } from "vitest";
 import { crearNotaSchema } from "./nota";
