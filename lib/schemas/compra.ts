@@ -2,13 +2,16 @@
  * Schemas de validación de la entidad Compra.
  *
  * Una Compra agrupa una o más Entradas (una por butaca) para una misma
- * Función — ver H3 en docs/spec.md. Que ninguna butaca esté ya vendida no
+ * Función — ver H4 en docs/spec.md. Que ninguna butaca esté ya vendida no
  * se puede validar acá: es una condición que depende del estado actual de
  * la base y se resuelve de forma atómica en lib/db/ al confirmar la compra.
  */
 import { z } from "zod";
 
-export const estadoCompraSchema = z.enum(["PENDIENTE", "PAGADA", "RECHAZADA"]);
+// Sin estado "pendiente": el pago (mock) resuelve al instante, así que una
+// Compra con el pago rechazado directamente no se persiste (sección 3 del
+// spec).
+export const estadoCompraSchema = z.enum(["PAGADA", "RECHAZADA"]);
 export type EstadoCompra = z.infer<typeof estadoCompraSchema>;
 
 export const crearCompraSchema = z.object({

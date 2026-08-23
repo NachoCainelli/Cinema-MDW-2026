@@ -2,7 +2,7 @@
  * Schema de validación de la entidad Función.
  *
  * Una función es la proyección de una Película en una Sala, en un horario
- * (ver H2 en docs/spec.md). La regla de superposición de horarios —incluido
+ * (ver H3 en docs/spec.md). La regla de superposición de horarios —incluido
  * el margen de 15 minutos con otras funciones de la misma sala— no se puede
  * validar acá: necesita consultar las demás funciones ya guardadas, así que
  * se resuelve en la capa de datos (lib/db/), no en el schema.

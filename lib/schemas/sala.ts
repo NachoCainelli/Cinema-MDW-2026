@@ -2,7 +2,7 @@
  * Schema de validación de la entidad Sala.
  *
  * Al crear una sala se generan automáticamente todas sus butacas —una por
- * cada combinación de fila y columna—, ver H1 y lib/schemas/butaca.ts en
+ * cada combinación de fila y columna—, ver H2 y lib/schemas/butaca.ts en
  * docs/spec.md.
  */
 import { z } from "zod";

@@ -2,7 +2,7 @@
  * Schema de validación de la entidad Butaca.
  *
  * Las butacas no se crean a mano: se generan automáticamente al crear la
- * Sala, una por cada fila y columna (ver H1 y lib/schemas/sala.ts). Este
+ * Sala, una por cada fila y columna (ver H2 y lib/schemas/sala.ts). Este
  * schema valida la posición de una butaca cuando hace falta identificarla
  * por fila y columna en lugar de por id.
  */
