@@ -39,7 +39,7 @@ Los sustantivos que aparecen en las historias de usuario. De acá sale el modelo
 | **Usuario** | Persona con cuenta; su `rol` define qué puede hacer | Compra (1‑N, como comprador) |
 | **Sala** | Espacio físico del cine, con sus filas y columnas de butacas | Butaca (1‑N) · Función (1‑N) |
 | **Butaca** | Una posición (fila, columna) dentro de una Sala. Todas las butacas son iguales, sin tipos diferenciados | Sala (N‑1) · Entrada (1‑N) |
-| **Película** | Título, sinopsis, duración, clasificación | Función (1‑N) |
+| **Película** | Título, sinopsis, duración, clasificación por edad, categoría (género) | Función (1‑N) |
 | **Función** | La proyección de una Película en una Sala, en un horario | Película (N‑1) · Sala (N‑1) · Entrada (1‑N) |
 | **Compra** | La operación de compra de un Usuario: agrupa una o más Entradas y tiene un estado de pago | Usuario (N‑1) · Entrada (1‑N) |
 | **Entrada** | Una Butaca reservada para una Función, dentro de una Compra | Función (N‑1) · Butaca (N‑1) · Compra (N‑1) |
