@@ -24,11 +24,13 @@ butaca, sin depender de ir presencialmente.
 
 | Rol | Quién es | Qué puede hacer que el otro no |
 |---|---|---|
-| **Administrador** | Configura la estructura del cine | Crear/editar salas y butacas, definir horarios generales de funcionamiento, crear cuentas de gestor de cartelera |
-| **Gestor de cartelera** | Arma la programación | Crear películas, asignarlas a salas con horario (crear funciones), publicar/despublicar la cartelera |
-| **Usuario** | Público que compra entradas | Ver la cartelera publicada, comprar entradas con selección de butaca, ver su historial de compras |
+| **Administrador** | Configura la estructura del cine | Crear/editar salas y butacas, crear cuentas de administrador y de gestor de cartelera |
+| **Gestor de cartelera** | Arma la programación | Crear películas, asignarlas a salas con horario (crear funciones) |
+| **Usuario** | Público que compra entradas | Registrarse por su cuenta, ver la cartelera publicada, comprar entradas con selección de butaca, ver su historial de compras |
 
-Todo comprador necesita cuenta: no hay compra como invitado.
+Todo comprador necesita cuenta. Un Usuario se registra por su cuenta (autoservicio); las cuentas
+de administrador y gestor de cartelera las crea siempre un administrador — nadie se autoregistra
+con esos dos roles. No hay compra como invitado.
 
 ## 3. Entidades
 
@@ -39,20 +41,45 @@ Los sustantivos que aparecen en las historias de usuario. De acá sale el modelo
 | **Usuario** | Persona con cuenta; su `rol` define qué puede hacer | Compra (1‑N, como comprador) |
 | **Sala** | Espacio físico del cine, con sus filas y columnas de butacas | Butaca (1‑N) · Función (1‑N) |
 | **Butaca** | Una posición (fila, columna) dentro de una Sala. Todas las butacas son iguales, sin tipos diferenciados | Sala (N‑1) · Entrada (1‑N) |
-| **Película** | Título, sinopsis, duración, clasificación por edad, categoría (género) | Función (1‑N) |
+| **Película** | Título, sinopsis, duración, clasificación por edad (lista cerrada) y categoría o género (lista cerrada) | Función (1‑N) |
 | **Función** | La proyección de una Película en una Sala, en un horario | Película (N‑1) · Sala (N‑1) · Entrada (1‑N) |
-| **Compra** | La operación de compra de un Usuario: agrupa una o más Entradas y tiene un estado de pago | Usuario (N‑1) · Entrada (1‑N) |
+| **Compra** | La operación de compra de un Usuario: agrupa una o más Entradas y tiene un estado (`PAGADA` o `RECHAZADA`) | Usuario (N‑1) · Entrada (1‑N) |
 | **Entrada** | Una Butaca reservada para una Función, dentro de una Compra | Función (N‑1) · Butaca (N‑1) · Compra (N‑1) |
 
+Una Compra solo se guarda si el pago (simulado) se resuelve: si es aprobado queda en estado
+`PAGADA`; si es rechazado, no llega a crearse (no hay estado "pendiente" — el pago mock resuelve
+al instante).
+
+Que una butaca esté **libre** u **ocupada** no es un atributo propio de la Butaca: se calcula
+según si existe o no una Entrada de una Compra `PAGADA` para esa Butaca en esa Función puntual —
+la misma butaca está libre para una función y ocupada para otra.
+
 El precio de la entrada es único y fijo para todo el cine (no varía por función ni por tipo de
-butaca).
+butaca). Es un valor de configuración del sistema, no un atributo de ninguna entidad de este
+listado.
 
 ## 4. Historias de usuario
 
 Formato: **Como** <rol>, **quiero** <acción>, **para** <beneficio>.
 Cada historia lleva su criterio de aceptación: cómo se verifica que está terminada.
 
-### H1 — Configurar una sala y sus butacas
+> **Todas las historias asumen que el usuario inició sesión con el rol indicado**, salvo la H1,
+> que es pública. No se repite en cada criterio: el *Dado* se reserva para las condiciones que,
+> si fueran distintas, cambiarían el resultado.
+
+### H1 — Registrarse como usuario
+**Como** persona del público sin cuenta, **quiero** registrarme con mi email y una contraseña,
+**para** poder comprar entradas.
+
+Criterios de aceptación:
+- [ ] Cuando alguien se registra con email, nombre y contraseña válidos, entonces se crea su
+      cuenta con rol `USUARIO` y queda con la sesión iniciada.
+- [ ] Dado que ya existe una cuenta con ese email, cuando alguien intenta registrarse con el mismo
+      email, el sistema rechaza el registro e informa el motivo.
+- [ ] Caso de error: si la contraseña tiene menos de 8 caracteres, no se crea la cuenta y se
+      muestra el motivo.
+
+### H2 — Configurar una sala y sus butacas
 **Como** administrador, **quiero** crear una sala definiendo sus filas y columnas de butacas,
 **para** tener el espacio físico listo antes de programar funciones.
 
@@ -64,7 +91,7 @@ Criterios de aceptación:
 - [ ] Caso de error: si la cantidad de filas o columnas es cero o negativa, no se crea la sala y
       se muestra el motivo.
 
-### H2 — Publicar una función en la cartelera
+### H3 — Publicar una función en la cartelera
 **Como** gestor de cartelera, **quiero** asignar una película a una sala en un horario, **para**
 que el público la vea publicada y pueda comprar entradas.
 
@@ -77,7 +104,7 @@ Criterios de aceptación:
 - [ ] Caso de error: si la fecha/hora de la función es anterior a la actual, no se crea y se
       informa el motivo.
 
-### H3 — Comprar entradas
+### H4 — Comprar entradas
 **Como** usuario, **quiero** elegir una función y seleccionar mis butacas, **para** asegurarme un
 lugar en la sala sin sobreventa.
 
@@ -97,12 +124,13 @@ El recorrido completo, paso a paso, del flujo que da valor al sistema (no un ABM
 1. El gestor de cartelera crea una función: asigna una película a una sala en una fecha y
    horario (respetando el margen de 15 min con otras funciones de esa sala).
 2. La función queda publicada en la cartelera pública.
-3. El usuario entra al sistema, ve la cartelera y elige una función.
-4. El usuario selecciona una o más butacas libres de esa función.
-5. El usuario confirma la compra; el sistema procesa el pago (simulado).
-6. Si el pago es aprobado, se genera la Compra con sus Entradas y esas butacas quedan ocupadas
+3. El usuario se registra (o inicia sesión si ya tiene cuenta).
+4. El usuario ve la cartelera y elige una función.
+5. El usuario selecciona una o más butacas libres de esa función.
+6. El usuario confirma la compra; el sistema procesa el pago (simulado).
+7. Si el pago es aprobado, se genera la Compra con sus Entradas y esas butacas quedan ocupadas
    para esa función.
-7. El usuario ve su compra confirmada, con sus entradas, en su historial.
+8. El usuario ve su compra confirmada, con sus entradas, en su historial.
 
 ## 6. Reglas de negocio
 
@@ -120,6 +148,11 @@ revisar a mano.
   esos roles.
 - Una función no se puede crear con fecha/hora en el pasado.
 - Una compra confirmada no se puede cancelar ni reembolsar (ver Fuera de alcance).
+- No existe una reserva temporal ("hold") de butaca mientras el usuario elige o paga: la
+  disponibilidad se valida recién al confirmar la compra. Por eso dos personas pueden llegar a
+  ver la misma butaca como libre a la vez, y a la segunda que confirma el sistema se lo informa.
+- Una Compra con el pago rechazado no se persiste: no hay estado "pendiente" a la espera de un
+  pago, porque el mock resuelve al instante.
 
 ## 7. Requisitos no funcionales
 
@@ -149,10 +182,10 @@ Esta lista es **igual para todos los proyectos**: no hay que adaptarla, hay que 
 
 **Para qué:** aprueba o rechaza el pago de una Compra al instante, sin credenciales ni
 dependencias externas reales. Permite probar el flujo completo de compra (incluido el caso de
-pago rechazado de H3) sin depender de una pasarela real.
+pago rechazado de H4) sin depender de una pasarela real.
 
 **Qué pasa si se cae:** al ser un mock local no depende de un servicio externo; simula un rechazo
-ocasional para poder probar el caso de error de H3.
+ocasional para poder probar el caso de error de H4.
 
 ## 9. Fuera de alcance
 
@@ -166,3 +199,7 @@ Lo que decidimos **no** hacer, para no volver a discutirlo en la clase 12.
 - **Tipos de butaca diferenciados** (VIP, discapacidad) **y precios variables por función.** Todas
   las butacas son iguales y el precio es único para todo el cine.
 - **Una persona con más de un rol a la vez.**
+- **Editar o eliminar una función ya publicada.** Una vez creada, una función no se modifica ni se
+  borra en este alcance — si hay un error, se resuelve fuera del sistema.
+- **Reserva temporal de butacas** mientras el usuario está eligiendo o pagando. La disponibilidad
+  se valida solo al confirmar la compra (ver sección 6).
