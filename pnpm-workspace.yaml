@@ -4,6 +4,9 @@ blockExoticSubdeps: true
 minimumReleaseAge: 10080
 saveExact: true
 
+overrides:
+  deepmerge-ts: '8.0.0'
+
 allowBuilds:
   '@prisma/client@6.19.3': true
   '@prisma/engines@6.19.3': true
