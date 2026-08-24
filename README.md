@@ -5,7 +5,7 @@
 - Ignacio Cainelli — responsable del repositorio
 - Rodolfo Meroi
 - Alejandro Santini
-- A designar
+- Gastón Pisana
 
 **Producción:** https://cinema-mdw-2026.vercel.app/
 
