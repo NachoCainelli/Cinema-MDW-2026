@@ -41,7 +41,7 @@ Los sustantivos que aparecen en las historias de usuario. De acá sale el modelo
 | **Usuario** | Persona con cuenta; su `rol` define qué puede hacer | Compra (1‑N, como comprador) |
 | **Sala** | Espacio físico del cine, con sus filas y columnas de butacas | Butaca (1‑N) · Función (1‑N) |
 | **Butaca** | Una posición (fila, columna) dentro de una Sala. Todas las butacas son iguales, sin tipos diferenciados | Sala (N‑1) · Entrada (1‑N) |
-| **Película** | Título, sinopsis, duración, clasificación por edad (lista cerrada) y categoría o género (lista cerrada) | Función (1‑N) |
+| **Película** | Título, sinopsis, duración, clasificación por edad (lista cerrada), categoría o género (lista cerrada) e imagen (opcional, URL pública en el bucket de Supabase Storage) | Función (1‑N) |
 | **Función** | La proyección de una Película en una Sala, en un horario | Película (N‑1) · Sala (N‑1) · Entrada (1‑N) |
 | **Compra** | La operación de compra de un Usuario: agrupa una o más Entradas y tiene un estado (`PAGADA` o `RECHAZADA`) | Usuario (N‑1) · Entrada (1‑N) |
 | **Entrada** | Una Butaca reservada para una Función, dentro de una Compra | Función (N‑1) · Butaca (N‑1) · Compra (N‑1) |
@@ -117,6 +117,23 @@ Criterios de aceptación:
       vuelven a estar libres.
 - [ ] Caso de error: si no seleccionó ninguna butaca, el sistema no permite confirmar la compra.
 
+### H5 — Eliminar una sala
+**Como** administrador, **quiero** eliminar una sala que ya no se usa, **para** que deje de estar
+disponible para programar funciones nuevas sin perder el historial de las que ya se dieron ahí.
+
+El borrado es **lógico**: la sala se marca como eliminada, nunca se borra la fila (ver "Reglas de
+borrado" en la sección 6) — así una función pasada sigue pudiendo mostrar en qué sala se dio.
+
+Criterios de aceptación:
+- [ ] Dado que la sala no tiene funciones futuras, cuando el administrador la elimina, entonces
+      queda marcada como eliminada, no aparece para programar funciones nuevas, y sus butacas
+      dejan de listarse como disponibles.
+- [ ] Dado que la sala tiene una o más funciones futuras, cuando el administrador intenta
+      eliminarla, el sistema rechaza la operación e informa el motivo.
+- [ ] Una sala eliminada sigue apareciendo, con su nombre, en las funciones pasadas que se dieron
+      en ella y en el historial de compras de esas funciones.
+- [ ] Caso de error: si la sala no existe, se informa el motivo.
+
 ## 5. Flujo principal
 
 El recorrido completo, paso a paso, del flujo que da valor al sistema (no un ABM).
@@ -153,6 +170,33 @@ revisar a mano.
   ver la misma butaca como libre a la vez, y a la segunda que confirma el sistema se lo informa.
 - Una Compra con el pago rechazado no se persiste: no hay estado "pendiente" a la espera de un
   pago, porque el mock resuelve al instante.
+- Una sala no se puede eliminar si tiene una o más funciones futuras programadas. Si solo tiene
+  funciones pasadas (o ninguna), se puede eliminar.
+- Eliminar una sala es un borrado lógico: la fila nunca se borra de la base, se marca
+  `eliminadaEn`. Una sala eliminada no admite funciones nuevas, pero sus butacas y sus funciones
+  pasadas se conservan tal cual para no romper el historial de ventas (ver H5 y Reglas de borrado).
+
+### Reglas de borrado
+
+Salvo la Sala (H5, borrado lógico), no hay más funcionalidad de borrado en las historias de
+usuario de este alcance (ninguna otra entidad se elimina desde la aplicación). Aun así, el modelo
+de datos (`prisma/schema.prisma`) define qué pasa si se borra una fila a mano o en una migración
+futura, para no perder historial de ventas. Criterio general (según la guía de la clase 3): lo que
+es historia no se borra nunca; lo demás, borrado físico hasta que haga falta otra cosa.
+
+- **Sala:** borrado **lógico**, no físico (`eliminadaEn`, ver H5). Una sala que ya tuvo funciones es
+  historia — borrarla de verdad le haría perder a esas funciones el dato de en qué sala se dieron.
+  Por eso la relación Sala → Función se deja en `Restrict` (no en cascada ni en `SetNull`): es un
+  freno de seguridad para que un borrado físico accidental de la fila nunca sea posible mientras
+  tenga funciones asociadas.
+- **Sala → Butaca:** en cascada. Solo se ejecutaría si alguna vez se borra la fila de Sala a mano
+  (la app nunca lo hace, ver el punto anterior). Una butaca no existe sin su sala.
+- **Película → Función:** restringido. No se puede borrar una película que ya tiene funciones
+  asociadas (coherente con que una función publicada no se edita ni se borra, sección 9).
+- **Función → Entrada** y **Butaca → Entrada:** restringido. Protege el historial: no se puede
+  borrar una función o una butaca que ya tiene entradas vendidas.
+- **Compra → Entrada:** en cascada. Una entrada no existe sin su compra.
+- **Usuario → Compra:** restringido. No se pierde el historial de compras de un usuario.
 
 ## 7. Requisitos no funcionales
 
@@ -186,6 +230,14 @@ pago rechazado de H4) sin depender de una pasarela real.
 
 **Qué pasa si se cae:** al ser un mock local no depende de un servicio externo; simula un rechazo
 ocasional para poder probar el caso de error de H4.
+
+**Cuál:** bucket público de Supabase Storage, para el póster de la Película.
+
+**Para qué:** guardar la imagen y servirla directo desde su URL pública (campo `imagenUrl`,
+opcional). No se guarda el archivo en la base de datos, solo la URL.
+
+**Qué pasa si se cae:** la película se sigue mostrando sin imagen (el campo es opcional); no
+bloquea ninguna otra funcionalidad del sistema.
 
 ## 9. Fuera de alcance
 

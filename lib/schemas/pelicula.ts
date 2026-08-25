@@ -37,5 +37,9 @@ export const crearPeliculaSchema = z.object({
     .max(600, "La duración no puede superar los 600 minutos"),
   clasificacion: clasificacionSchema,
   categoria: categoriaSchema,
+  // URL pública del póster en el bucket de Supabase Storage. Opcional: no hay
+  // todavía un flujo de carga de imágenes, así que la película se puede crear
+  // sin ella y completarla después.
+  imagenUrl: z.string().trim().url("La imagen tiene que ser una URL válida").optional(),
 });
 export type CrearPeliculaInput = z.infer<typeof crearPeliculaSchema>;
