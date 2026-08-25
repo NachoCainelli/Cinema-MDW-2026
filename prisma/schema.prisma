@@ -1,12 +1,3 @@
-// Modelo de datos del proyecto — Cinema MDW 2026.
-//
-// Ver docs/spec.md (sección 3, Entidades) y docs/diagrama-entidades.md para el
-// diagrama y las cardinalidades. Los nombres de campo y los enums están
-// alineados con lib/schemas/*.ts.
-//
-// Después de cualquier cambio en este archivo:
-//   pnpm db:migrate --name <descripcion-del-cambio>
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,11 +5,6 @@ generator client {
 datasource db {
   provider = "postgresql"
 
-  // Vercel es serverless, así que hacen falta dos conexiones distintas:
-  //   DATABASE_URL → el pooler, que la app usa en cada request
-  //   DIRECT_URL   → la conexión directa, que usan las migraciones
-  // Con una sola funciona en clase y se cae en producción por agotar
-  // las conexiones de Postgres.
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
@@ -48,10 +34,6 @@ enum Categoria {
   SUSPENSO
 }
 
-// Solo existe el valor PAGADA: una Compra con el pago rechazado no llega a
-// crearse (spec, sección 3) — no hay estado "pendiente". El enum queda
-// preparado por si en el futuro se decide auditar los intentos rechazados,
-// pero hoy ninguna fila de Compra tiene otro valor.
 enum EstadoCompra {
   PAGADA
 }
@@ -68,18 +50,11 @@ model Usuario {
 }
 
 model Sala {
-  id       String   @id @default(cuid())
-  nombre   String   @unique
-  filas    Int
-  columnas Int
-  creadaEn DateTime @default(now())
-
-  // Borrado lógico, no físico: una sala que ya tuvo funciones es historia (no
-  // se puede borrar la fila sin perder en qué sala se dio cada función
-  // pasada). `null` = activa. Se puede eliminar solo si no tiene funciones
-  // futuras (regla de negocio, sección 6 del spec); una vez eliminada, deja de
-  // estar disponible para programar funciones nuevas pero se sigue mostrando
-  // en el historial.
+  id          String    @id @default(cuid())
+  nombre      String    @unique
+  filas       Int
+  columnas    Int
+  creadaEn    DateTime  @default(now())
   eliminadaEn DateTime?
 
   butacas   Butaca[]
@@ -96,7 +71,6 @@ model Butaca {
 
   entradas Entrada[]
 
-  // No puede haber dos butacas en la misma posición dentro de una sala.
   @@unique([salaId, fila, columna])
   @@index([salaId])
 }
@@ -109,11 +83,8 @@ model Pelicula {
   clasificacion   Clasificacion
   categoria       Categoria
   creadaEn        DateTime      @default(now())
-
-  // URL pública del póster en el bucket de Supabase Storage. Opcional: hoy no
-  // existe el flujo de carga a Storage, así que una película tiene que poder
-  // crearse sin imagen y completarla después.
-  imagenUrl String?
+  imagenUrl       String?
+  bajaEn          DateTime?
 
   funciones Funcion[]
 }
@@ -122,9 +93,6 @@ model Funcion {
   id     String   @id @default(cuid())
   inicio DateTime
 
-  // Restrict: no se puede borrar una película o una sala que ya tiene
-  // funciones asociadas (y una función, una vez publicada, no se edita ni se
-  // borra en este alcance — spec, sección 9).
   pelicula   Pelicula @relation(fields: [peliculaId], references: [id], onDelete: Restrict)
   peliculaId String
 
@@ -142,7 +110,6 @@ model Compra {
   estado   EstadoCompra @default(PAGADA)
   creadaEn DateTime     @default(now())
 
-  // Restrict: no se pierde el historial de compras de un usuario.
   usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
   usuarioId String
 
@@ -154,20 +121,15 @@ model Compra {
 model Entrada {
   id String @id @default(cuid())
 
-  // Restrict en función y butaca: protege el historial de ventas — no se
-  // puede borrar una función o una butaca que ya tiene entradas vendidas.
   funcion   Funcion @relation(fields: [funcionId], references: [id], onDelete: Restrict)
   funcionId String
 
   butaca   Butaca @relation(fields: [butacaId], references: [id], onDelete: Restrict)
   butacaId String
 
-  // Cascade: una entrada no existe sin su compra.
   compra   Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
   compraId String
 
-  // Evita la sobreventa: una butaca no puede estar en más de una Entrada
-  // para la misma función (regla de negocio, sección 6 del spec).
   @@unique([funcionId, butacaId])
   @@index([funcionId])
   @@index([butacaId])

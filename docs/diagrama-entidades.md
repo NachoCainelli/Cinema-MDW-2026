@@ -38,6 +38,7 @@ erDiagram
         string clasificacion
         string categoria
         string imagenUrl "opcional"
+        datetime bajaEn "null = en cartelera"
     }
     FUNCION {
         string id PK

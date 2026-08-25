@@ -25,7 +25,7 @@ butaca, sin depender de ir presencialmente.
 | Rol | Quién es | Qué puede hacer que el otro no |
 |---|---|---|
 | **Administrador** | Configura la estructura del cine | Crear/editar salas y butacas, crear cuentas de administrador y de gestor de cartelera |
-| **Gestor de cartelera** | Arma la programación | Crear películas, asignarlas a salas con horario (crear funciones) |
+| **Gestor de cartelera** | Arma la programación | Crear películas, asignarlas a salas con horario (crear funciones), sacar películas de cartelera |
 | **Usuario** | Público que compra entradas | Registrarse por su cuenta, ver la cartelera publicada, comprar entradas con selección de butaca, ver su historial de compras |
 
 Todo comprador necesita cuenta. Un Usuario se registra por su cuenta (autoservicio); las cuentas
@@ -41,7 +41,7 @@ Los sustantivos que aparecen en las historias de usuario. De acá sale el modelo
 | **Usuario** | Persona con cuenta; su `rol` define qué puede hacer | Compra (1‑N, como comprador) |
 | **Sala** | Espacio físico del cine, con sus filas y columnas de butacas | Butaca (1‑N) · Función (1‑N) |
 | **Butaca** | Una posición (fila, columna) dentro de una Sala. Todas las butacas son iguales, sin tipos diferenciados | Sala (N‑1) · Entrada (1‑N) |
-| **Película** | Título, sinopsis, duración, clasificación por edad (lista cerrada), categoría o género (lista cerrada) e imagen (opcional, URL pública en el bucket de Supabase Storage) | Función (1‑N) |
+| **Película** | Título, sinopsis, duración, clasificación por edad (lista cerrada), categoría o género (lista cerrada), imagen (opcional, URL pública en el bucket de Supabase Storage) y si está en cartelera o dada de baja | Función (1‑N) |
 | **Función** | La proyección de una Película en una Sala, en un horario | Película (N‑1) · Sala (N‑1) · Entrada (1‑N) |
 | **Compra** | La operación de compra de un Usuario: agrupa una o más Entradas y tiene un estado (`PAGADA` o `RECHAZADA`) | Usuario (N‑1) · Entrada (1‑N) |
 | **Entrada** | Una Butaca reservada para una Función, dentro de una Compra | Función (N‑1) · Butaca (N‑1) · Compra (N‑1) |
@@ -103,6 +103,8 @@ Criterios de aceptación:
       sistema la rechaza e informa el conflicto.
 - [ ] Caso de error: si la fecha/hora de la función es anterior a la actual, no se crea y se
       informa el motivo.
+- [ ] Caso de error: si la película está dada de baja (ver H6), no se crea la función y se informa
+      el motivo.
 
 ### H4 — Comprar entradas
 **Como** usuario, **quiero** elegir una función y seleccionar mis butacas, **para** asegurarme un
@@ -133,6 +135,25 @@ Criterios de aceptación:
 - [ ] Una sala eliminada sigue apareciendo, con su nombre, en las funciones pasadas que se dieron
       en ella y en el historial de compras de esas funciones.
 - [ ] Caso de error: si la sala no existe, se informa el motivo.
+
+### H6 — Sacar una película de cartelera
+**Como** gestor de cartelera, **quiero** sacar de cartelera una película que ya no se va a
+programar, **para** que deje de estar disponible para nuevas funciones sin perder el historial de
+las que ya se dieron.
+
+El borrado es **lógico**, igual criterio que H5 (Sala): la película se marca como dada de baja,
+nunca se borra la fila — así una función pasada sigue mostrando título, imagen y demás datos de la
+película que se proyectó.
+
+Criterios de aceptación:
+- [ ] Dado que la película no tiene funciones futuras, cuando el gestor la saca de cartelera,
+      entonces queda marcada como dada de baja, no aparece en la cartelera pública y no se puede
+      usar para crear funciones nuevas.
+- [ ] Dado que la película tiene una o más funciones futuras, cuando el gestor intenta sacarla de
+      cartelera, el sistema rechaza la operación e informa el motivo.
+- [ ] Una película dada de baja sigue apareciendo, con sus datos, en las funciones pasadas que se
+      dieron con ella y en el historial de compras de esas funciones.
+- [ ] Caso de error: si la película no existe, se informa el motivo.
 
 ## 5. Flujo principal
 
@@ -175,14 +196,21 @@ revisar a mano.
 - Eliminar una sala es un borrado lógico: la fila nunca se borra de la base, se marca
   `eliminadaEn`. Una sala eliminada no admite funciones nuevas, pero sus butacas y sus funciones
   pasadas se conservan tal cual para no romper el historial de ventas (ver H5 y Reglas de borrado).
+- Una película no se puede sacar de cartelera si tiene una o más funciones futuras programadas. Si
+  solo tiene funciones pasadas (o ninguna), se puede sacar.
+- Sacar una película de cartelera es un borrado lógico, mismo criterio que la sala: la fila nunca
+  se borra, se marca `bajaEn`. Una película dada de baja no admite funciones nuevas, pero sus
+  funciones pasadas y el historial de ventas asociado se conservan tal cual (ver H6 y Reglas de
+  borrado).
 
 ### Reglas de borrado
 
-Salvo la Sala (H5, borrado lógico), no hay más funcionalidad de borrado en las historias de
-usuario de este alcance (ninguna otra entidad se elimina desde la aplicación). Aun así, el modelo
-de datos (`prisma/schema.prisma`) define qué pasa si se borra una fila a mano o en una migración
-futura, para no perder historial de ventas. Criterio general (según la guía de la clase 3): lo que
-es historia no se borra nunca; lo demás, borrado físico hasta que haga falta otra cosa.
+Salvo la Sala (H5) y la Película (H6) —ambas con borrado lógico—, no hay más funcionalidad de
+borrado en las historias de usuario de este alcance (ninguna otra entidad se elimina desde la
+aplicación). Aun así, el modelo de datos (`prisma/schema.prisma`) define qué pasa si se borra una
+fila a mano o en una migración futura, para no perder historial de ventas. Criterio general (según
+la guía de la clase 3): lo que es historia no se borra nunca; lo demás, borrado físico hasta que
+haga falta otra cosa.
 
 - **Sala:** borrado **lógico**, no físico (`eliminadaEn`, ver H5). Una sala que ya tuvo funciones es
   historia — borrarla de verdad le haría perder a esas funciones el dato de en qué sala se dieron.
@@ -191,8 +219,10 @@ es historia no se borra nunca; lo demás, borrado físico hasta que haga falta o
   tenga funciones asociadas.
 - **Sala → Butaca:** en cascada. Solo se ejecutaría si alguna vez se borra la fila de Sala a mano
   (la app nunca lo hace, ver el punto anterior). Una butaca no existe sin su sala.
-- **Película → Función:** restringido. No se puede borrar una película que ya tiene funciones
-  asociadas (coherente con que una función publicada no se edita ni se borra, sección 9).
+- **Película:** borrado **lógico**, no físico (`bajaEn`, ver H6). Mismo razonamiento que Sala: una
+  película que ya tuvo funciones es historia. Por eso **Película → Función** también se deja en
+  `Restrict`, como freno de seguridad — no por sí sola justificaría el borrado físico, ya que la
+  app nunca borra la fila.
 - **Función → Entrada** y **Butaca → Entrada:** restringido. Protege el historial: no se puede
   borrar una función o una butaca que ya tiene entradas vendidas.
 - **Compra → Entrada:** en cascada. Una entrada no existe sin su compra.
