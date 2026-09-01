@@ -1,11 +1,3 @@
-// Modelo de datos del proyecto.
-//
-// Lo que hay acá abajo es un EJEMPLO MÍNIMO para que el proyecto arranque.
-// En la clase 3 lo reemplazan por el modelo de su propio dominio.
-//
-// Después de cualquier cambio en este archivo:
-//   pnpm db:migrate --name <descripcion-del-cambio>
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,49 +5,133 @@ generator client {
 datasource db {
   provider = "postgresql"
 
-  // Vercel es serverless, así que hacen falta dos conexiones distintas:
-  //   DATABASE_URL → el pooler, que la app usa en cada request
-  //   DIRECT_URL   → la conexión directa, que usan las migraciones
-  // Con una sola funciona en clase y se cae en producción por agotar
-  // las conexiones de Postgres.
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
-// ¿El equipo eligió MongoDB? Se cambia el provider a "mongodb", se usa una
-// connection string de MongoDB Atlas y se sincroniza con `prisma db push`
-// en lugar de `prisma migrate dev`. El resto del proyecto no cambia.
-// Ojo: con Mongo los ids llevan @map("_id") @db.ObjectId y la integridad
-// referencial la garantiza el código, no la base.
-
 enum Rol {
-  ADMIN
+  ADMINISTRADOR
+  GESTOR_CARTELERA
   USUARIO
 }
 
-model Usuario {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  nombre    String
-  rol       Rol      @default(USUARIO)
-  creadoEn  DateTime @default(now())
-
-  notas     Nota[]
+enum Clasificacion {
+  ATP
+  MAS_13
+  MAS_16
+  MAS_18
 }
 
-// Entidad de ejemplo: bórrenla en la clase 3.
-// Muestra el patrón de una relación 1-N con su índice.
-model Nota {
-  id            String   @id @default(cuid())
-  titulo        String
-  contenido     String
-  creadaEn      DateTime @default(now())
-  actualizadaEn DateTime @updatedAt
+enum Categoria {
+  ACCION
+  COMEDIA
+  DRAMA
+  TERROR
+  CIENCIA_FICCION
+  ANIMACION
+  DOCUMENTAL
+  ROMANCE
+  SUSPENSO
+}
 
-  autor         Usuario  @relation(fields: [autorId], references: [id], onDelete: Cascade)
-  autorId       String
+enum EstadoCompra {
+  PAGADA
+}
 
-  // Índice sobre la foreign key: sin esto, listar las notas de un usuario
-  // obliga a Postgres a recorrer la tabla entera.
-  @@index([autorId])
+model Usuario {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  nombre       String
+  passwordHash String
+  rol          Rol      @default(USUARIO)
+  creadoEn     DateTime @default(now())
+
+  compras Compra[]
+}
+
+model Sala {
+  id          String    @id @default(cuid())
+  nombre      String    @unique
+  filas       Int
+  columnas    Int
+  creadaEn    DateTime  @default(now())
+  eliminadaEn DateTime?
+
+  butacas   Butaca[]
+  funciones Funcion[]
+}
+
+model Butaca {
+  id      String @id @default(cuid())
+  fila    Int
+  columna Int
+
+  sala   Sala   @relation(fields: [salaId], references: [id], onDelete: Cascade)
+  salaId String
+
+  entradas Entrada[]
+
+  @@unique([salaId, fila, columna])
+  @@index([salaId])
+}
+
+model Pelicula {
+  id              String        @id @default(cuid())
+  titulo          String
+  sinopsis        String
+  duracionMinutos Int
+  clasificacion   Clasificacion
+  categoria       Categoria
+  creadaEn        DateTime      @default(now())
+  imagenUrl       String?
+  bajaEn          DateTime?
+
+  funciones Funcion[]
+}
+
+model Funcion {
+  id     String   @id @default(cuid())
+  inicio DateTime
+
+  pelicula   Pelicula @relation(fields: [peliculaId], references: [id], onDelete: Restrict)
+  peliculaId String
+
+  sala   Sala   @relation(fields: [salaId], references: [id], onDelete: Restrict)
+  salaId String
+
+  entradas Entrada[]
+
+  @@index([peliculaId])
+  @@index([salaId])
+}
+
+model Compra {
+  id       String       @id @default(cuid())
+  estado   EstadoCompra @default(PAGADA)
+  creadaEn DateTime     @default(now())
+
+  usuario   Usuario @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  usuarioId String
+
+  entradas Entrada[]
+
+  @@index([usuarioId])
+}
+
+model Entrada {
+  id String @id @default(cuid())
+
+  funcion   Funcion @relation(fields: [funcionId], references: [id], onDelete: Restrict)
+  funcionId String
+
+  butaca   Butaca @relation(fields: [butacaId], references: [id], onDelete: Restrict)
+  butacaId String
+
+  compra   Compra @relation(fields: [compraId], references: [id], onDelete: Cascade)
+  compraId String
+
+  @@unique([funcionId, butacaId])
+  @@index([funcionId])
+  @@index([butacaId])
+  @@index([compraId])
 }

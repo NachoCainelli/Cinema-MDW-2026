@@ -49,4 +49,30 @@ describe("crearPeliculaSchema", () => {
 
     expect(resultado.success).toBe(false);
   });
+
+  it("acepta una imagenUrl válida", () => {
+    const resultado = crearPeliculaSchema.safeParse({
+      titulo: "Una película",
+      sinopsis: "De qué se trata",
+      duracionMinutos: 120,
+      clasificacion: "ATP",
+      categoria: "DRAMA",
+      imagenUrl: "https://xyz.supabase.co/storage/v1/object/public/posters/una-pelicula.jpg",
+    });
+
+    expect(resultado.success).toBe(true);
+  });
+
+  it("rechaza una imagenUrl que no es una URL", () => {
+    const resultado = crearPeliculaSchema.safeParse({
+      titulo: "Una película",
+      sinopsis: "De qué se trata",
+      duracionMinutos: 120,
+      clasificacion: "ATP",
+      categoria: "DRAMA",
+      imagenUrl: "no-es-una-url",
+    });
+
+    expect(resultado.success).toBe(false);
+  });
 });
