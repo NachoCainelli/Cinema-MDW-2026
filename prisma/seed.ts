@@ -76,8 +76,10 @@ async function main() {
     where: { email: "usuario@ejemplo.com" },
   });
 
-  // Las butacas de una sala se generan automáticamente al crearla (regla de
-  // negocio, sección 6 del spec).
+  // El spec (sección 6) pide que las butacas se generen a partir de filas x
+  // columnas al crear la sala. Acá lo hace el seed a mano: no hay todavía un
+  // lib/db/sala.ts que encapsule esa regla, así que cuando exista hay que
+  // reemplazar este bloque por esa función y no duplicar la lógica.
   const salas = [];
   for (const datosSala of SALAS) {
     const sala = await prisma.sala.upsert({
@@ -147,13 +149,27 @@ async function main() {
   // estados sin comprar nada a mano.
   const primeraFuncion = funciones[0];
   if (!primeraFuncion) throw new Error("No se generó ninguna función.");
+  const BUTACAS_A_VENDER = [1, 2, 3];
   const butacasVendidas = await prisma.butaca.findMany({
     where: {
       salaId: primeraFuncion.salaId,
       fila: 1,
-      columna: { in: [1, 2, 3] },
+      columna: { in: BUTACAS_A_VENDER },
     },
   });
+
+  // Si la sala ya existía con otra configuración, el upsert de más arriba
+  // conserva sus filas/columnas originales y puede no haber tres butacas en la
+  // fila 1. Cortamos acá en vez de crear una compra incompleta: el spec pide
+  // que una Compra agrupe una o más Entradas, y una compra con menos butacas
+  // de las que dice el comentario esconde el problema en lugar de mostrarlo.
+  if (butacasVendidas.length !== BUTACAS_A_VENDER.length) {
+    throw new Error(
+      `Se esperaban ${BUTACAS_A_VENDER.length} butacas en la fila 1 de la sala ` +
+        `de la primera función y se encontraron ${butacasVendidas.length}. ` +
+        `Suele pasar cuando la sala ya existía en la base con otras dimensiones.`,
+    );
+  }
 
   const entradaExistente = await prisma.entrada.findFirst({
     where: { funcionId: primeraFuncion.id },
