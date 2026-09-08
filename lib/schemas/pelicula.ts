@@ -50,3 +50,37 @@ export const crearPeliculaSchema = z.object({
   imagenUrl: z.string().trim().url("La imagen tiene que ser una URL válida").optional(),
 });
 export type CrearPeliculaInput = z.infer<typeof crearPeliculaSchema>;
+/**
+ * Schema del PATCH (`PATCH /api/peliculas/:id`). Es el de creación en versión
+ * parcial: el endpoint modifica los campos que le mandan, no reemplaza el
+ * recurso entero, así que las reglas de cada campo son exactamente las mismas
+ * y no se duplican acá.
+ *
+ * El `refine` rechaza el body vacío. No es por prolijidad: Zod descarta las
+ * claves que no conoce, así que un `{ "titulo2": "..." }` —un campo mal
+ * escrito— llegaría como `{}` y el PATCH respondería 200 sin haber cambiado
+ * nada. Mejor un 400 que diga que no se envió ningún campo.
+ */
+export const actualizarPeliculaSchema = crearPeliculaSchema
+  .partial()
+  .refine((datos) => Object.keys(datos).length > 0, {
+    message: "Hay que enviar al menos un campo para modificar",
+  });
+export type ActualizarPeliculaInput = z.infer<typeof actualizarPeliculaSchema>;
+
+/**
+ * Query string del listado de películas (`GET /api/peliculas`). Mismo criterio
+ * que el listado de salas: el límite llega como texto y siempre hay un tope.
+ */
+export const peliculasQuerySchema = z.object({
+  limite: z.coerce
+    .number()
+    .int("El límite tiene que ser un número entero")
+    .min(1, "El límite tiene que ser mayor a 0")
+    .max(100, "El límite no puede superar los 100 resultados")
+    .default(50),
+});
+export type PeliculasQuery = z.infer<typeof peliculasQuerySchema>;
+
+/** Id de película que llega por la ruta (`/api/peliculas/:id`). */
+export const peliculaIdSchema = z.string().min(1, "Falta el id de la película");

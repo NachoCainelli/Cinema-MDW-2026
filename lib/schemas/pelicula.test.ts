@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { crearPeliculaSchema } from "./pelicula";
+import {
+  actualizarPeliculaSchema,
+  crearPeliculaSchema,
+  peliculasQuerySchema,
+} from "./pelicula";
 
 describe("crearPeliculaSchema", () => {
   it("acepta una película válida", () => {
@@ -72,6 +76,52 @@ describe("crearPeliculaSchema", () => {
       categoria: "DRAMA",
       imagenUrl: "no-es-una-url",
     });
+
+    expect(resultado.success).toBe(false);
+  });
+});
+
+describe("actualizarPeliculaSchema", () => {
+  it("acepta un solo campo: el PATCH no exige el recurso entero", () => {
+    const resultado = actualizarPeliculaSchema.safeParse({ titulo: "Otro título" });
+
+    expect(resultado.success).toBe(true);
+  });
+
+  it("aplica las mismas reglas que el alta a los campos que sí llegan", () => {
+    const resultado = actualizarPeliculaSchema.safeParse({ duracionMinutos: 0 });
+
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rechaza un body vacío", () => {
+    const resultado = actualizarPeliculaSchema.safeParse({});
+
+    expect(resultado.success).toBe(false);
+  });
+
+  it("rechaza un body con un campo mal escrito, que quedaría vacío al descartarlo", () => {
+    const resultado = actualizarPeliculaSchema.safeParse({ tituloo: "typo" });
+
+    expect(resultado.success).toBe(false);
+  });
+});
+
+describe("peliculasQuerySchema", () => {
+  it("usa 50 como límite por defecto", () => {
+    const resultado = peliculasQuerySchema.safeParse({});
+
+    expect(resultado.success && resultado.data.limite).toBe(50);
+  });
+
+  it("convierte el límite que llega como texto en la URL", () => {
+    const resultado = peliculasQuerySchema.safeParse({ limite: "10" });
+
+    expect(resultado.success && resultado.data.limite).toBe(10);
+  });
+
+  it("rechaza un límite por encima del tope", () => {
+    const resultado = peliculasQuerySchema.safeParse({ limite: "999" });
 
     expect(resultado.success).toBe(false);
   });

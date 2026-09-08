@@ -28,10 +28,21 @@ Este documento especifica el contrato de la API REST para el sistema Cinema MDW 
 
 | Método | Ruta | Qué hace | Rol autorizado | Errores (status + motivo) |
 |---|---|---|---|---|
-| `POST` | `/api/peliculas` | Crear película | GESTOR_CARTELERA | **401** sin sesión<br>**403** rol incorrecto |
-| `GET` | `/api/peliculas` | Listar películas | GESTOR_CARTELERA | **401** sin sesión<br>**403** rol incorrecto |
-| `PATCH` | `/api/peliculas/:id` | Editar película | GESTOR_CARTELERA | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe |
-| `DELETE` | `/api/peliculas/:id` | Sacar de cartelera (H6) | GESTOR_CARTELERA | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe<br>**409** película con funciones futuras |
+| `POST` | `/api/peliculas` | Crear película | GESTOR_CARTELERA | **400** clasificación o categoría fuera de la lista, duración inválida<br>**401** sin sesión<br>**403** rol incorrecto |
+| `GET` | `/api/peliculas` | Listar películas | GESTOR_CARTELERA | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**401** sin sesión<br>**403** rol incorrecto |
+| `PATCH` | `/api/peliculas/:id` | Editar película | GESTOR_CARTELERA | **400** campo inválido o body sin ningún campo conocido<br>**401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o está fuera de cartelera |
+| `DELETE` | `/api/peliculas/:id` | Sacar de cartelera (H6) | GESTOR_CARTELERA | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o ya estaba dada de baja<br>**409** película con funciones futuras |
+
+`DELETE` es una **baja lógica** (`bajaEn`) y responde **204** sin cuerpo. La película deja de
+aparecer en `GET /api/peliculas` y en la cartelera pública, y no admite funciones nuevas
+(`POST /api/funciones` la rechaza con 409), pero sus funciones pasadas y las compras que las
+tienen quedan intactas: es lo que hace que el historial de H4 siga siendo legible. Dada de baja,
+la película queda fuera de alcance también para el `PATCH` y para otra baja, y las dos responden
+**404**, igual que un id que no existe.
+
+El 409 de la baja cubre las funciones **futuras y las que todavía están en curso**: la gente ya
+compró entradas para verlas. `GET /api/peliculas` es el catálogo del gestor y no la vitrina del
+cine —esa es `GET /api/funciones`, pública—, por eso pide sesión.
 
 ## Funciones y Cartelera (H3)
 
