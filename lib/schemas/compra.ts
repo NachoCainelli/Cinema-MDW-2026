@@ -26,3 +26,18 @@ export const crearCompraSchema = z.object({
     ),
 });
 export type CrearCompraInput = z.infer<typeof crearCompraSchema>;
+
+/**
+ * Query string del historial (`GET /api/compras`). No lleva un `usuarioId`: de
+ * quién son las compras lo decide la sesión, no la URL (ver H4 en docs/spec.md
+ * y la regla de autorización de AGENTS.md).
+ */
+export const historialQuerySchema = z.object({
+  limite: z.coerce
+    .number()
+    .int("El límite tiene que ser un número entero")
+    .min(1, "El límite tiene que ser mayor a 0")
+    .max(100, "El límite no puede superar los 100 resultados")
+    .default(50),
+});
+export type HistorialQuery = z.infer<typeof historialQuerySchema>;

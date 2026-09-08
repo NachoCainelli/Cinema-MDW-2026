@@ -179,3 +179,83 @@ GET {{host}}/api/funciones/REEMPLAZAR_POR_UN_ID_DE_FUNCION/butacas
 
 ### H3 · Butacas de una función inexistente → 404
 GET {{host}}/api/funciones/no-existe/butacas
+
+### H4 · Comprar entradas → 201 con la compra PAGADA y una entrada por butaca
+# Requiere el stub de sesión: AUTH_STUB_HABILITADO="true" y un usuario con rol
+# USUARIO. Los ids de butaca salen de GET /api/funciones/:id/butacas (las que
+# tienen `ocupada: false`).
+POST {{host}}/api/compras
+Content-Type: application/json
+x-usuario-prueba: usuario@ejemplo.com
+
+{
+  "funcionId": "REEMPLAZAR_POR_UN_ID_DE_FUNCION",
+  "butacaIds": ["REEMPLAZAR_POR_UN_ID_DE_BUTACA"]
+}
+
+### H4 · Sobreventa: la misma butaca y función otra vez → 409, sin cobrar
+# Correr después del bloque de arriba, con los mismos ids.
+POST {{host}}/api/compras
+Content-Type: application/json
+x-usuario-prueba: usuario@ejemplo.com
+
+{
+  "funcionId": "REEMPLAZAR_POR_UN_ID_DE_FUNCION",
+  "butacaIds": ["REEMPLAZAR_POR_UN_ID_DE_BUTACA"]
+}
+
+### H4 · Sin butacas seleccionadas → 400 con el detalle por campo
+POST {{host}}/api/compras
+Content-Type: application/json
+x-usuario-prueba: usuario@ejemplo.com
+
+{
+  "funcionId": "REEMPLAZAR_POR_UN_ID_DE_FUNCION",
+  "butacaIds": []
+}
+
+### H4 · Butaca de otra sala (o inexistente) → 409
+POST {{host}}/api/compras
+Content-Type: application/json
+x-usuario-prueba: usuario@ejemplo.com
+
+{
+  "funcionId": "REEMPLAZAR_POR_UN_ID_DE_FUNCION",
+  "butacaIds": ["no-existe"]
+}
+
+### H4 · Pago rechazado → 402 y la compra no se crea
+# Correr con PAGO_MOCK_TASA_RECHAZO="1" en .env.local (y reiniciar `pnpm dev`).
+POST {{host}}/api/compras
+Content-Type: application/json
+x-usuario-prueba: usuario@ejemplo.com
+
+{
+  "funcionId": "REEMPLAZAR_POR_UN_ID_DE_FUNCION",
+  "butacaIds": ["REEMPLAZAR_POR_UN_ID_DE_BUTACA"]
+}
+
+### H4 · Sin el rol USUARIO → 403 (o 401 sin el header de sesión)
+POST {{host}}/api/compras
+Content-Type: application/json
+x-usuario-prueba: gestor@ejemplo.com
+
+{
+  "funcionId": "REEMPLAZAR_POR_UN_ID_DE_FUNCION",
+  "butacaIds": ["REEMPLAZAR_POR_UN_ID_DE_BUTACA"]
+}
+
+### H4 · Historial del usuario de la sesión → 200 con sus compras, las más nuevas primero
+GET {{host}}/api/compras
+x-usuario-prueba: usuario@ejemplo.com
+
+### H4 · El usuarioId de la query se ignora: siguen viéndose las compras propias
+GET {{host}}/api/compras?usuarioId=otro-usuario
+x-usuario-prueba: usuario@ejemplo.com
+
+### H4 · Historial con límite fuera de rango → 400
+GET {{host}}/api/compras?limite=999
+x-usuario-prueba: usuario@ejemplo.com
+
+### H4 · Historial sin sesión → 401
+GET {{host}}/api/compras
