@@ -21,3 +21,20 @@ export const crearFuncionSchema = z.object({
     .refine((fecha) => fecha.getTime() > Date.now(), "La función no puede empezar en el pasado"),
 });
 export type CrearFuncionInput = z.infer<typeof crearFuncionSchema>;
+
+/**
+ * Query string de la cartelera pública (`GET /api/funciones`). El límite llega
+ * como texto —todo lo que viene en la URL es texto—, por eso el `coerce`.
+ */
+export const carteleraQuerySchema = z.object({
+  limite: z.coerce
+    .number()
+    .int("El límite tiene que ser un número entero")
+    .min(1, "El límite tiene que ser mayor a 0")
+    .max(100, "El límite no puede superar los 100 resultados")
+    .default(50),
+});
+export type CarteleraQuery = z.infer<typeof carteleraQuerySchema>;
+
+/** Id de función que llega por la ruta (`/api/funciones/:id/butacas`). */
+export const funcionIdSchema = z.string().min(1, "Falta el id de la función");
