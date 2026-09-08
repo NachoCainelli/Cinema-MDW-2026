@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { crearCompraSchema } from "./compra";
+import { crearCompraSchema, historialQuerySchema } from "./compra";
 
 describe("crearCompraSchema", () => {
   it("acepta una compra válida", () => {
@@ -34,5 +34,20 @@ describe("crearCompraSchema", () => {
     });
 
     expect(resultado.success).toBe(false);
+  });
+});
+
+describe("historialQuerySchema", () => {
+  it("usa 50 como límite por defecto", () => {
+    expect(historialQuerySchema.parse({})).toEqual({ limite: 50 });
+  });
+
+  it("convierte el límite que llega como texto en la URL", () => {
+    expect(historialQuerySchema.parse({ limite: "10" })).toEqual({ limite: 10 });
+  });
+
+  it("rechaza un límite fuera de rango", () => {
+    expect(historialQuerySchema.safeParse({ limite: "999" }).success).toBe(false);
+    expect(historialQuerySchema.safeParse({ limite: "0" }).success).toBe(false);
   });
 });

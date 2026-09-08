@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 
 import {
   ErrorDeConflicto,
+  ErrorDePagoRechazado,
   ErrorNoAutenticado,
   ErrorNoAutorizado,
   ErrorNoEncontrado,
@@ -39,6 +40,10 @@ export function respuestaDeError(error: unknown): NextResponse<CuerpoDeError> {
 
   if (error instanceof ErrorNoAutorizado) {
     return NextResponse.json({ error: error.message }, { status: 403 });
+  }
+
+  if (error instanceof ErrorDePagoRechazado) {
+    return NextResponse.json({ error: error.message }, { status: 402 });
   }
 
   if (error instanceof ErrorNoEncontrado) {
