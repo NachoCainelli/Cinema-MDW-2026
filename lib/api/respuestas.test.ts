@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import {
   ErrorDeConflicto,
+  ErrorDePagoRechazado,
   ErrorNoAutenticado,
   ErrorNoAutorizado,
   ErrorNoEncontrado,
@@ -47,6 +48,13 @@ describe("respuestaDeError", () => {
     const respuesta = respuestaDeError(new ErrorNoAutorizado());
 
     expect(respuesta.status).toBe(403);
+  });
+
+  it("traduce ErrorDePagoRechazado a 402 y muestra el motivo", async () => {
+    const respuesta = respuestaDeError(new ErrorDePagoRechazado("Tarjeta sin fondos"));
+
+    expect(respuesta.status).toBe(402);
+    expect((await cuerpo(respuesta)).error).toBe("Tarjeta sin fondos");
   });
 
   it("traduce ErrorNoEncontrado a 404", async () => {

@@ -49,5 +49,18 @@ una Compra `PAGADA` para esa butaca en esa función. No es un atributo de Butaca
 
 | Método | Ruta | Qué hace | Rol autorizado | Errores (status + motivo) |
 |---|---|---|---|---|
-| `POST` | `/api/compras` | Comprar entradas (H4) | USUARIO | **400** sin butacas seleccionadas<br>**401** sin sesión<br>**402** pago rechazado (la compra no se persiste)<br>**403** rol incorrecto<br>**409** butaca ya vendida para esa función |
-| `GET` | `/api/compras` | Historial de compras | USUARIO | **401** sin sesión<br>**403** rol incorrecto |
+| `POST` | `/api/compras` | Comprar entradas (H4) | USUARIO | **400** sin butacas seleccionadas<br>**401** sin sesión<br>**402** pago rechazado (la compra no se persiste)<br>**403** rol incorrecto<br>**404** función inexistente<br>**409** butaca ya vendida para esa función<br>**409** butaca que no pertenece a la sala de esa función<br>**409** función ya empezada |
+| `GET` | `/api/compras` | Historial de compras | USUARIO | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**401** sin sesión<br>**403** rol incorrecto |
+
+La compra es la operación del flujo principal, por eso tiene ruta propia con sustantivo y no es el
+alta de un CRUD. No hay reserva temporal: la disponibilidad se valida recién al confirmar, y la
+Compra con sus Entradas se escribe en una transacción. Lo que evita la sobreventa cuando dos
+compras llegan a la vez es la restricción `@@unique([funcionId, butacaId])` de Entrada; las
+verificaciones previas están para no cobrarle a quien va a perder esa carrera.
+
+El pago es simulado (`lib/pagos.ts`): resuelve al instante, así que no existe el estado
+"pendiente". Aprobado, la Compra queda `PAGADA`; rechazado, no se persiste nada y responde **402**.
+
+El `usuarioId` sale siempre de la sesión: el del body y el de la query string se ignoran. Por eso
+`GET /api/compras` devuelve solo las compras propias y no hace falta un 404 por compra ajena. El
+historial muestra las funciones pasadas aunque la sala esté eliminada o la película dada de baja.
