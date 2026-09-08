@@ -5,11 +5,12 @@ import { eliminarSalaLogico } from "@/lib/db/salas";
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     await requerirUsuario("ADMINISTRADOR");
-    await eliminarSalaLogico(params.id);
+    await eliminarSalaLogico(id);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return respuestaDeError(error);
