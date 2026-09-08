@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 import { ErrorDeConflicto, ErrorNoEncontrado } from "@/lib/errores";
 
@@ -26,45 +27,65 @@ vi.mock("@/lib/db/client", () => ({
 
 const { crearSala, listarSalas, eliminarSalaLogico } = await import("./salas");
 
-const datos = { nombre: "Sala 1", filas: 2, columnas: 2 };
+const datos = { nombre: "Sala 1", filas: 2, columnas: 3 };
 const salaCreada = {
   id: "sala_1",
   nombre: "Sala 1",
   filas: 2,
-  columnas: 2,
+  columnas: 3,
   creadaEn: new Date(),
-  eliminadaEn: null,
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  buscar.mockResolvedValue(null);
+  buscar.mockResolvedValue({ ...salaCreada, eliminadaEn: null });
   crear.mockResolvedValue(salaCreada);
   listar.mockResolvedValue([salaCreada]);
   contar.mockResolvedValue(0);
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function argumentoDe(mockFn: any) {
-  const llamada = mockFn.mock.calls[0];
+type ArgsPrisma = {
+  data?: {
+    eliminadaEn?: unknown;
+    butacas?: { create?: { fila: number; columna: number }[] };
+  };
+  select?: Record<string, unknown>;
+  where?: Record<string, unknown>;
+  orderBy?: Record<string, unknown>;
+  take?: number;
+};
+
+/** El argumento con el que se llamó a un mock de Prisma, o un error si no se llamó. */
+function argumentoDe(mock: typeof crear | typeof listar | typeof actualizar): ArgsPrisma {
+  const llamada = mock.mock.calls[0];
   if (!llamada) throw new Error("se esperaba una llamada a Prisma y no hubo ninguna");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return llamada[0] as any;
+  return llamada[0] as ArgsPrisma;
+}
+
+function errorDePrisma(code: string) {
+  return new Prisma.PrismaClientKnownRequestError("falló", { code, clientVersion: "6" });
 }
 
 describe("crearSala", () => {
-  it("valida que no exista una sala con ese nombre", async () => {
-    buscar.mockResolvedValue(salaCreada);
+  it("traduce el nombre duplicado a ErrorDeConflicto (409)", async () => {
+    crear.mockRejectedValue(errorDePrisma("P2002"));
     await expect(crearSala(datos)).rejects.toBeInstanceOf(ErrorDeConflicto);
   });
 
-  it("crea las butacas de forma anidada", async () => {
-    await crearSala(datos);
-    const llamada = argumentoDe(crear);
-    
-    expect(llamada.data.butacas.create).toHaveLength(4);
-    expect(llamada.data.butacas.create).toContainEqual({ fila: 1, columna: 1 });
-    expect(llamada.data.butacas.create).toContainEqual({ fila: 2, columna: 2 });
+  it("deja pasar cualquier otro error de la base para que termine en 500", async () => {
+    crear.mockRejectedValue(errorDePrisma("P1001"));
+    await expect(crearSala(datos)).rejects.not.toBeInstanceOf(ErrorDeConflicto);
+  });
+
+  it("crea una butaca por cada fila y columna, en ese orden", async () => {
+    await crearSala(datos); // 2 filas x 3 columnas
+
+    const butacas = argumentoDe(crear).data?.butacas?.create;
+    expect(butacas).toHaveLength(6);
+    // El caso no es simétrico: si el doble `for` invirtiera fila y columna,
+    // esta butaca no existiría y la de abajo sí.
+    expect(butacas).toContainEqual({ fila: 2, columna: 3 });
+    expect(butacas).not.toContainEqual({ fila: 3, columna: 1 });
   });
 
   it("retorna la sala creada correctamente", async () => {
@@ -73,12 +94,13 @@ describe("crearSala", () => {
 });
 
 describe("listarSalas", () => {
-  it("lista salas filtrando las no eliminadas", async () => {
-    const salas = await listarSalas();
+  it("lista salas no eliminadas, ordenadas y con el límite pedido", async () => {
+    const salas = await listarSalas({ limite: 50 });
     expect(salas).toEqual([salaCreada]);
-    
+
     const llamada = argumentoDe(listar);
     expect(llamada.where).toEqual({ eliminadaEn: null });
+    expect(llamada.orderBy).toEqual({ nombre: "asc" });
     expect(llamada.take).toBe(50);
   });
 });
@@ -94,18 +116,16 @@ describe("eliminarSalaLogico", () => {
     await expect(eliminarSalaLogico("1")).rejects.toBeInstanceOf(ErrorNoEncontrado);
   });
 
-  it("arroja ErrorDeConflicto si la sala tiene funciones a futuro", async () => {
-    buscar.mockResolvedValue(salaCreada);
+  it("arroja ErrorDeConflicto si la sala tiene funciones en curso o programadas", async () => {
     contar.mockResolvedValue(1);
     await expect(eliminarSalaLogico("1")).rejects.toBeInstanceOf(ErrorDeConflicto);
   });
 
   it("actualiza eliminadaEn de la sala simulando borrado lógico", async () => {
-    buscar.mockResolvedValue(salaCreada);
     await eliminarSalaLogico("1");
-    
+
     const llamada = argumentoDe(actualizar);
     expect(llamada.where).toEqual({ id: "1" });
-    expect(llamada.data.eliminadaEn).toBeInstanceOf(Date);
+    expect(llamada.data?.eliminadaEn).toBeInstanceOf(Date);
   });
 });

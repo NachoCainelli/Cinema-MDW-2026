@@ -25,3 +25,20 @@ export const crearSalaSchema = z.object({
     .max(30, "La sala no puede tener más de 30 columnas"),
 });
 export type CrearSalaInput = z.infer<typeof crearSalaSchema>;
+
+/**
+ * Query string del listado de salas (`GET /api/salas`). El límite llega como
+ * texto —todo lo que viene en la URL es texto—, por eso el `coerce`.
+ */
+export const salasQuerySchema = z.object({
+  limite: z.coerce
+    .number()
+    .int("El límite tiene que ser un número entero")
+    .min(1, "El límite tiene que ser mayor a 0")
+    .max(100, "El límite no puede superar los 100 resultados")
+    .default(50),
+});
+export type SalasQuery = z.infer<typeof salasQuerySchema>;
+
+/** Id de sala que llega por la ruta (`/api/salas/:id`). */
+export const salaIdSchema = z.string().min(1, "Falta el id de la sala");

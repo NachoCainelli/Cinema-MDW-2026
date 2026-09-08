@@ -1,13 +1,15 @@
 import { NextResponse } from "next/server";
 import { requerirUsuario } from "@/lib/auth";
 import { respuestaDeError } from "@/lib/api/respuestas";
-import { crearSalaSchema } from "@/lib/schemas/sala";
+import { crearSalaSchema, salasQuerySchema } from "@/lib/schemas/sala";
 import { crearSala, listarSalas } from "@/lib/db/salas";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     await requerirUsuario("ADMINISTRADOR");
-    const salas = await listarSalas();
+    const { searchParams } = new URL(request.url);
+    const query = salasQuerySchema.parse(Object.fromEntries(searchParams));
+    const salas = await listarSalas(query);
     return NextResponse.json(salas, { status: 200 });
   } catch (error) {
     return respuestaDeError(error);
