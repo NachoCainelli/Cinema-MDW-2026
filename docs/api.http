@@ -49,3 +49,49 @@ Content-Type: application/json
   "password": "unaClaveLarga",
   "rol": "ADMINISTRADOR"
 }
+
+### H2 · Crear Sala exitoso → 201 con la sala creada
+POST {{host}}/api/salas
+Content-Type: application/json
+x-usuario-prueba: ADMINISTRADOR
+
+{
+  "nombre": "Sala 1",
+  "filas": 10,
+  "columnas": 10
+}
+
+### H2 · Crear Sala con datos inválidos → 400
+POST {{host}}/api/salas
+Content-Type: application/json
+x-usuario-prueba: ADMINISTRADOR
+
+{
+  "nombre": "Sala 2",
+  "filas": -5,
+  "columnas": 10
+}
+
+### H2 · Crear Sala duplicada → 409
+POST {{host}}/api/salas
+Content-Type: application/json
+x-usuario-prueba: ADMINISTRADOR
+
+{
+  "nombre": "Sala 1",
+  "filas": 10,
+  "columnas": 10
+}
+
+### H2 · Listar Salas exitoso → 200 con el listado de salas
+GET {{host}}/api/salas
+x-usuario-prueba: ADMINISTRADOR
+
+### H5 · Eliminar Sala existente (Sin funciones a futuro) → 204
+# Requiere poner un ID de sala válido en la URL
+DELETE {{host}}/api/salas/cm0t4a2f80000000000000001
+x-usuario-prueba: ADMINISTRADOR
+
+### H5 · Eliminar Sala inexistente → 404
+DELETE {{host}}/api/salas/id_que_no_existe
+x-usuario-prueba: ADMINISTRADOR
