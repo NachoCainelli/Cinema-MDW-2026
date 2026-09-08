@@ -96,6 +96,116 @@ x-usuario-prueba: ADMINISTRADOR
 DELETE {{host}}/api/salas/id_que_no_existe
 x-usuario-prueba: ADMINISTRADOR
 
+### H6 · Crear película → 201 con la película creada
+# Requiere el stub de sesión: AUTH_STUB_HABILITADO="true" y un usuario con rol
+# GESTOR_CARTELERA.
+POST {{host}}/api/peliculas
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "titulo": "El secreto de sus ojos",
+  "sinopsis": "Un oficial judicial retirado escribe una novela sobre un caso sin resolver.",
+  "duracionMinutos": 129,
+  "clasificacion": "MAS_16",
+  "categoria": "SUSPENSO"
+}
+
+### H6 · Crear película con datos inválidos: clasificación fuera de la lista cerrada → 400
+POST {{host}}/api/peliculas
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "titulo": "Una película",
+  "sinopsis": "De qué se trata",
+  "duracionMinutos": 0,
+  "clasificacion": "R",
+  "categoria": "DRAMA"
+}
+
+### H6 · Crear película con un rol que no es el de cartelera → 403
+# El alta no tiene caso de "recurso inexistente": el recurso todavía no existe.
+POST {{host}}/api/peliculas
+Content-Type: application/json
+x-usuario-prueba: persona@mail.com
+
+{
+  "titulo": "Una película",
+  "sinopsis": "De qué se trata",
+  "duracionMinutos": 120,
+  "clasificacion": "ATP",
+  "categoria": "DRAMA"
+}
+
+### H6 · Listar películas en cartelera → 200 (las dadas de baja no aparecen)
+GET {{host}}/api/peliculas
+x-usuario-prueba: gestor@cine.com
+
+### H6 · Listar con un límite fuera de rango (máximo 100) → 400
+GET {{host}}/api/peliculas?limite=999
+x-usuario-prueba: gestor@cine.com
+
+### H6 · Listar sin sesión → 401
+# El catálogo del gestor no es público: la vitrina es GET /api/funciones.
+GET {{host}}/api/peliculas
+
+### H6 · Editar una película → 200 con la película actualizada
+# Reemplazar el id por uno de la base (pnpm db:studio). Solo se mandan los
+# campos que cambian: es PATCH, no PUT.
+PATCH {{host}}/api/peliculas/REEMPLAZAR_POR_UN_ID_DE_PELICULA
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "sinopsis": "Una sinopsis nueva, más corta.",
+  "categoria": "DRAMA"
+}
+
+### H6 · Editar con datos inválidos: duración fuera de rango → 400
+PATCH {{host}}/api/peliculas/REEMPLAZAR_POR_UN_ID_DE_PELICULA
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "duracionMinutos": 0
+}
+
+### H6 · Editar con un campo mal escrito → 400 (no un 200 que no cambió nada)
+PATCH {{host}}/api/peliculas/REEMPLAZAR_POR_UN_ID_DE_PELICULA
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "tituloo": "El título con una o de más"
+}
+
+### H6 · Editar una película inexistente → 404
+PATCH {{host}}/api/peliculas/id_que_no_existe
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "titulo": "Da igual"
+}
+
+### H6 · Sacar de cartelera una película sin funciones pendientes → 204
+# Baja lógica: deja de listarse y de admitir funciones nuevas, pero sus
+# funciones pasadas y las compras que las tienen siguen intactas.
+DELETE {{host}}/api/peliculas/REEMPLAZAR_POR_UN_ID_DE_PELICULA
+x-usuario-prueba: gestor@cine.com
+
+### H6 · Sacar de cartelera una película con funciones en curso o programadas → 409
+# Correr después de publicar una función futura para esta película.
+DELETE {{host}}/api/peliculas/REEMPLAZAR_POR_UN_ID_DE_PELICULA
+x-usuario-prueba: gestor@cine.com
+
+### H6 · Sacar de cartelera una película inexistente → 404
+# Lo mismo responde una que ya estaba dada de baja: fuera de cartelera, para la
+# API es como si no existiera.
+DELETE {{host}}/api/peliculas/id_que_no_existe
+x-usuario-prueba: gestor@cine.com
+
 ### H3 · Publicar una función → 201 con la función creada
 # Requiere el stub de sesión: AUTH_STUB_HABILITADO="true" y un usuario con rol
 # GESTOR_CARTELERA. Reemplazar los ids por los de la base (pnpm db:studio).
