@@ -11,8 +11,32 @@
  * camino del pago rechazado se sube esa variable en `.env.local`.
  */
 
-/** Precio único y fijo de la entrada, en pesos (spec, sección 3). */
-export const PRECIO_ENTRADA = Number(process.env.PRECIO_ENTRADA ?? 5000);
+const PRECIO_POR_DEFECTO = 5000;
+
+/**
+ * Precio único y fijo de la entrada, en pesos (spec, sección 3).
+ *
+ * Se valida al cargar el módulo y revienta si el valor configurado no sirve.
+ * Es a propósito: un precio en 0 haría que `cobrar` rechace todas las compras
+ * con un mensaje sobre el monto, y uno que no es número las aprobaría cobrando
+ * `NaN`. Las dos fallas se leen como "la tarjeta falló" y no como lo que son,
+ * una variable de entorno mal puesta.
+ */
+function precioConfigurado() {
+  const configurado = process.env.PRECIO_ENTRADA?.trim();
+  if (!configurado) return PRECIO_POR_DEFECTO;
+
+  const precio = Number(configurado);
+  if (!Number.isFinite(precio) || precio <= 0) {
+    throw new Error(
+      `PRECIO_ENTRADA tiene que ser un número mayor a 0, y llegó "${configurado}"`,
+    );
+  }
+
+  return precio;
+}
+
+export const PRECIO_ENTRADA = precioConfigurado();
 
 export type ResultadoDePago = { aprobado: true } | { aprobado: false; motivo: string };
 

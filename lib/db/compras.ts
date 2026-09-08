@@ -86,28 +86,37 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
     );
   }
 
+  // Las dos consultas dependen de la función pero no entre sí, así que van en
+  // paralelo: es el camino caliente de la compra y no hay por qué pagar dos
+  // viajes a la base.
+  //
   // Las butacas se buscan acotadas a la sala de la función: así, un id que no
   // existe y uno de otra sala caen los dos en el mismo lado, y no hace falta
-  // una consulta aparte para distinguirlos.
-  const butacas = await prisma.butaca.findMany({
-    where: { id: { in: datos.butacaIds }, salaId: funcion.salaId },
-    select: { id: true },
-    take: MAXIMO_ENTRADAS_POR_COMPRA,
-  });
+  // una consulta aparte para distinguirlos. Las entradas no se filtran por
+  // estado: la única Compra que se persiste es la PAGADA (el pago rechazado no
+  // llega a guardarse), así que toda Entrada que exista ocupa la butaca. Es lo
+  // mismo que asume el índice único, que tampoco mira el estado.
+  const [butacas, ocupadas] = await Promise.all([
+    prisma.butaca.findMany({
+      where: { id: { in: datos.butacaIds }, salaId: funcion.salaId },
+      select: { id: true },
+      take: MAXIMO_ENTRADAS_POR_COMPRA,
+    }),
+    prisma.entrada.findMany({
+      where: { funcionId: funcion.id, butacaId: { in: datos.butacaIds } },
+      select: { butacaId: true },
+      take: MAXIMO_ENTRADAS_POR_COMPRA,
+    }),
+  ]);
+
+  // El orden de los dos chequeos importa para el mensaje: una butaca que ni
+  // siquiera es de esta sala no es un problema de disponibilidad.
   if (butacas.length !== datos.butacaIds.length) {
     throw new ErrorDeConflicto(
       "Alguna de las butacas elegidas no pertenece a la sala de esta función",
     );
   }
 
-  // No se filtra por estado: la única Compra que se persiste es la PAGADA (el
-  // pago rechazado no llega a guardarse), así que toda Entrada que exista
-  // ocupa la butaca. Es lo mismo que asume el índice único.
-  const ocupadas = await prisma.entrada.findMany({
-    where: { funcionId: funcion.id, butacaId: { in: datos.butacaIds } },
-    select: { butacaId: true },
-    take: MAXIMO_ENTRADAS_POR_COMPRA,
-  });
   if (ocupadas.length > 0) throw new ErrorDeConflicto(mensajeDeButacasOcupadas(ocupadas.length));
 
   // El cobro va afuera de la transacción: dejar la conexión tomada esperando a
@@ -119,6 +128,13 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
 
   try {
     return await prisma.$transaction(async (tx) => {
+      // Este re-chequeo no cierra la carrera de dos compras simultáneas: en
+      // READ COMMITTED no se ven las filas que la otra transacción todavía no
+      // confirmó —eso lo corta el índice único, más abajo—. Cubre el caso
+      // frecuente: una compra rival que commiteó entre la verificación de
+      // arriba y este momento. Esas filas ya están confirmadas, así que se ven,
+      // y el mensaje puede decir cuántas butacas se perdieron en vez del 1 fijo
+      // que informa el camino del índice único.
       const seAdelantaron = await tx.entrada.findMany({
         where: { funcionId: funcion.id, butacaId: { in: datos.butacaIds } },
         select: { butacaId: true },

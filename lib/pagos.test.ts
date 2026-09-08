@@ -35,3 +35,45 @@ describe("cobrar (pasarela simulada)", () => {
     expect(PRECIO_ENTRADA).toBeGreaterThan(0);
   });
 });
+
+/**
+ * `PRECIO_ENTRADA` se resuelve al cargar el módulo, así que cada caso necesita
+ * su propia importación: por eso el `resetModules` y el `import()` dinámico.
+ */
+describe("PRECIO_ENTRADA", () => {
+  async function importarConPrecio(configurado?: string) {
+    vi.resetModules();
+    vi.stubEnv("PRECIO_ENTRADA", configurado);
+    return import("./pagos");
+  }
+
+  it("usa el precio por defecto si la variable no está", async () => {
+    const { PRECIO_ENTRADA: precio } = await importarConPrecio();
+
+    expect(precio).toBe(5000);
+  });
+
+  it("usa el precio por defecto si la variable quedó vacía, y no 0", async () => {
+    // Es lo que pasa al copiar .env.example tal cual: `Number("")` es 0, y un
+    // precio en 0 haría que toda compra respondiera 402.
+    const { PRECIO_ENTRADA: precio } = await importarConPrecio("");
+
+    expect(precio).toBe(5000);
+  });
+
+  it("toma el precio configurado", async () => {
+    const { PRECIO_ENTRADA: precio } = await importarConPrecio("7500");
+
+    expect(precio).toBe(7500);
+  });
+
+  it("no arranca con un precio que no es un número", async () => {
+    // Sin esto el pago se aprobaría cobrando NaN: `NaN <= 0` es false.
+    await expect(importarConPrecio("gratis")).rejects.toThrow(/PRECIO_ENTRADA/);
+  });
+
+  it("no arranca con un precio que no es mayor a 0", async () => {
+    await expect(importarConPrecio("0")).rejects.toThrow(/PRECIO_ENTRADA/);
+    await expect(importarConPrecio("-100")).rejects.toThrow(/PRECIO_ENTRADA/);
+  });
+});
