@@ -27,6 +27,12 @@ export function respuestaDeError(error: unknown): NextResponse<CuerpoDeError> {
     );
   }
 
+  // Body vacío o mal formado: `request.json()` lanza SyntaxError. Es un error
+  // de quien llama, no del servidor, así que es 400 y no 500.
+  if (error instanceof SyntaxError) {
+    return NextResponse.json({ error: "El cuerpo del request no es JSON válido" }, { status: 400 });
+  }
+
   if (error instanceof ErrorNoAutenticado) {
     return NextResponse.json({ error: error.message }, { status: 401 });
   }

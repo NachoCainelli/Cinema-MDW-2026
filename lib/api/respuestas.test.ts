@@ -28,6 +28,14 @@ describe("respuestaDeError", () => {
     });
   });
 
+  it("traduce un JSON mal formado a 400 y no a 500", async () => {
+    // Lo que lanza `request.json()` cuando el body está vacío o roto.
+    const respuesta = respuestaDeError(new SyntaxError("Unexpected end of JSON input"));
+
+    expect(respuesta.status).toBe(400);
+    expect((await cuerpo(respuesta)).error).toBe("El cuerpo del request no es JSON válido");
+  });
+
   it("traduce ErrorNoAutenticado a 401", async () => {
     const respuesta = respuestaDeError(new ErrorNoAutenticado());
 
