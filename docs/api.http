@@ -1,0 +1,51 @@
+# Requests de ejemplo de la API
+#
+# Se ejecutan desde el editor con la extensión REST Client (VS Code) o el
+# cliente HTTP de JetBrains: cada bloque separado por `###` se manda con un
+# click. Sirve como documentación viva del contrato de `docs/api.md`: si un
+# request de acá deja de responder lo que dice el comentario, algo se rompió.
+#
+# Antes de correrlos: `pnpm dev`.
+
+@host = http://localhost:3000
+
+### H1 · Registro exitoso → 201 con el usuario creado (sin contraseña ni hash)
+POST {{host}}/api/usuarios
+Content-Type: application/json
+
+{
+  "email": "persona@mail.com",
+  "nombre": "Ana Pérez",
+  "password": "unaClaveLarga"
+}
+
+### H1 · Datos inválidos: contraseña de menos de 8 caracteres → 400 con el detalle por campo
+POST {{host}}/api/usuarios
+Content-Type: application/json
+
+{
+  "email": "otra@mail.com",
+  "nombre": "Ana Pérez",
+  "password": "corta"
+}
+
+### H1 · Email duplicado → 409 (correr después del registro exitoso de arriba)
+POST {{host}}/api/usuarios
+Content-Type: application/json
+
+{
+  "email": "persona@mail.com",
+  "nombre": "Otra Persona",
+  "password": "otraClaveLarga"
+}
+
+### H1 · El rol del body se ignora: se crea igual con rol USUARIO, nunca ADMINISTRADOR
+POST {{host}}/api/usuarios
+Content-Type: application/json
+
+{
+  "email": "colada@mail.com",
+  "nombre": "Persona Colada",
+  "password": "unaClaveLarga",
+  "rol": "ADMINISTRADOR"
+}

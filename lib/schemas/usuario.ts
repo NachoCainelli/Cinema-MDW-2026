@@ -4,10 +4,6 @@
  * El rol define qué puede hacer cada usuario (docs/spec.md, sección 2). Solo
  * el rol "USUARIO" se autoregistra: las cuentas de administrador y gestor de
  * cartelera las crea un administrador (regla de negocio, sección 6).
- *
- * NOTA: lib/auth.ts todavía define `Rol` como "ADMIN" | "USUARIO" —el
- * placeholder de la clase 1—. Se actualiza a este mismo union en la clase 6,
- * cuando se cablea Auth.js.
  */
 import { z } from "zod";
 
