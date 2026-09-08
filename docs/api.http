@@ -49,3 +49,87 @@ Content-Type: application/json
   "password": "unaClaveLarga",
   "rol": "ADMINISTRADOR"
 }
+
+### H3 · Publicar una función → 201 con la función creada
+# Requiere el stub de sesión: AUTH_STUB_HABILITADO="true" y un usuario con rol
+# GESTOR_CARTELERA. Reemplazar los ids por los de la base (pnpm db:studio).
+POST {{host}}/api/funciones
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "peliculaId": "REEMPLAZAR_POR_UN_ID_DE_PELICULA",
+  "salaId": "REEMPLAZAR_POR_UN_ID_DE_SALA",
+  "inicio": "2030-01-01T20:00:00.000Z"
+}
+
+### H3 · Solapamiento: misma sala, 14 minutos después de que termina la anterior → 409
+# Con la función de arriba (20:00, 120 min) la sala queda libre recién 22:15.
+POST {{host}}/api/funciones
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "peliculaId": "REEMPLAZAR_POR_UN_ID_DE_PELICULA",
+  "salaId": "REEMPLAZAR_POR_UN_ID_DE_SALA",
+  "inicio": "2030-01-01T22:14:00.000Z"
+}
+
+### H3 · Con los 15 minutos justos de margen sí entra → 201
+POST {{host}}/api/funciones
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "peliculaId": "REEMPLAZAR_POR_UN_ID_DE_PELICULA",
+  "salaId": "REEMPLAZAR_POR_UN_ID_DE_SALA",
+  "inicio": "2030-01-01T22:15:00.000Z"
+}
+
+### H3 · Fecha en el pasado → 400 con el detalle por campo
+POST {{host}}/api/funciones
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "peliculaId": "REEMPLAZAR_POR_UN_ID_DE_PELICULA",
+  "salaId": "REEMPLAZAR_POR_UN_ID_DE_SALA",
+  "inicio": "2020-01-01T20:00:00.000Z"
+}
+
+### H3 · Sin el rol GESTOR_CARTELERA → 403 (o 401 sin el header de sesión)
+POST {{host}}/api/funciones
+Content-Type: application/json
+x-usuario-prueba: persona@mail.com
+
+{
+  "peliculaId": "REEMPLAZAR_POR_UN_ID_DE_PELICULA",
+  "salaId": "REEMPLAZAR_POR_UN_ID_DE_SALA",
+  "inicio": "2030-01-02T20:00:00.000Z"
+}
+
+### H3 · Película inexistente → 404
+POST {{host}}/api/funciones
+Content-Type: application/json
+x-usuario-prueba: gestor@cine.com
+
+{
+  "peliculaId": "no-existe",
+  "salaId": "REEMPLAZAR_POR_UN_ID_DE_SALA",
+  "inicio": "2030-01-03T20:00:00.000Z"
+}
+
+### H3 · Cartelera pública → 200, sin sesión, solo funciones futuras
+GET {{host}}/api/funciones
+
+### H3 · Cartelera con límite → 200 con a lo sumo 5 funciones
+GET {{host}}/api/funciones?limite=5
+
+### H3 · Límite fuera de rango → 400
+GET {{host}}/api/funciones?limite=999
+
+### H3 · Butacas de una función → 200 con cada butaca y su `ocupada` calculada
+GET {{host}}/api/funciones/REEMPLAZAR_POR_UN_ID_DE_FUNCION/butacas
+
+### H3 · Butacas de una función inexistente → 404
+GET {{host}}/api/funciones/no-existe/butacas

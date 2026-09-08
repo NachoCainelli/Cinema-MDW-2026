@@ -37,9 +37,13 @@ Este documento especifica el contrato de la API REST para el sistema Cinema MDW 
 
 | Método | Ruta | Qué hace | Rol autorizado | Errores (status + motivo) |
 |---|---|---|---|---|
-| `POST` | `/api/funciones` | Crear función (H3) | GESTOR_CARTELERA | **400** función con fecha/hora en el pasado<br>**401** sin sesión<br>**403** rol incorrecto<br>**409** solapamiento de funciones en la misma sala (margen de 15 min)<br>**409** película dada de baja |
-| `GET` | `/api/funciones` | Ver cartelera pública | público | |
+| `POST` | `/api/funciones` | Crear función (H3) | GESTOR_CARTELERA | **400** función con fecha/hora en el pasado<br>**401** sin sesión<br>**403** rol incorrecto<br>**404** película o sala inexistente<br>**409** solapamiento de funciones en la misma sala (margen de 15 min)<br>**409** película dada de baja<br>**409** sala eliminada |
+| `GET` | `/api/funciones` | Ver cartelera pública | público | **400** `limite` fuera de rango (1 a 100, por defecto 50) |
 | `GET` | `/api/funciones/:id/butacas` | Ver butacas de una función | público | **404** no existe |
+
+La cartelera pública devuelve solo funciones **futuras**, de salas no eliminadas y de películas en
+cartelera. En `/api/funciones/:id/butacas`, `ocupada` es un valor **calculado**: hay una Entrada de
+una Compra `PAGADA` para esa butaca en esa función. No es un atributo de Butaca.
 
 ## Compras y Flujo Principal (H4)
 
