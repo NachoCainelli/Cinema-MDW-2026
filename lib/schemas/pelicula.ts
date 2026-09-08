@@ -3,6 +3,13 @@
  */
 import { z } from "zod";
 
+/**
+ * Techo de duración de una película. Lo usa también lib/db/funciones.ts para
+ * acotar la ventana de funciones que puede llegar a solaparse con una nueva:
+ * ninguna función arrancada más de este rato antes puede seguir en curso.
+ */
+export const DURACION_MAXIMA_MINUTOS = 600;
+
 export const clasificacionSchema = z.enum(["ATP", "MAS_13", "MAS_16", "MAS_18"]);
 export type Clasificacion = z.infer<typeof clasificacionSchema>;
 
@@ -34,7 +41,7 @@ export const crearPeliculaSchema = z.object({
     .number()
     .int("La duración tiene que ser un número entero de minutos")
     .min(1, "La duración tiene que ser mayor a 0")
-    .max(600, "La duración no puede superar los 600 minutos"),
+    .max(DURACION_MAXIMA_MINUTOS, `La duración no puede superar los ${DURACION_MAXIMA_MINUTOS} minutos`),
   clasificacion: clasificacionSchema,
   categoria: categoriaSchema,
   // URL pública del póster en el bucket de Supabase Storage. Opcional: no hay
