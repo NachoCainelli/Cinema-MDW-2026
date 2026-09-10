@@ -34,7 +34,11 @@ async function obtenerUsuarioDePrueba(): Promise<UsuarioSesion | null> {
 }
 
 export async function obtenerUsuario(): Promise<UsuarioSesion | null> {
-  return obtenerUsuarioDePrueba();
+  // El `return await` no es redundante: sin él, Turbopack (Next 16.3) deduce
+  // en compilación que `await obtenerUsuario()` nunca es null y borra el
+  // `if (!usuario)` de `requerirUsuario`. Sin sesión, los endpoints protegidos
+  // respondían 500 en vez de 401, en `pnpm dev` y en Vercel.
+  return await obtenerUsuarioDePrueba();
 }
 
 export async function requerirUsuario(rol?: Rol): Promise<UsuarioSesion> {
