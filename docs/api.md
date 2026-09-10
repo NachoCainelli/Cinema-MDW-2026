@@ -21,7 +21,7 @@ Este documento especifica el contrato de la API REST para el sistema Cinema MDW 
 | Método | Ruta | Qué hace | Rol autorizado | Errores (status + motivo) |
 |---|---|---|---|---|
 | `POST` | `/api/salas` | Crear una sala y sus butacas (H2) | ADMINISTRADOR | **400** filas o columnas <= 0<br>**401** sin sesión<br>**403** rol incorrecto<br>**409** sala con nombre duplicado |
-| `GET` | `/api/salas` | Listar salas y butacas | ADMINISTRADOR | **401** sin sesión<br>**403** rol incorrecto |
+| `GET` | `/api/salas` | Listar salas vigentes | ADMINISTRADOR | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**401** sin sesión<br>**403** rol incorrecto |
 | `DELETE` | `/api/salas/:id` | Baja lógica de sala (H5) | ADMINISTRADOR | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe<br>**409** sala con funciones futuras |
 
 ## Películas (H6)
