@@ -2,18 +2,21 @@
  * Capa de datos de Función (H3): creación, cartelera pública y butacas con su
  * estado calculado.
  *
- * La regla que manda acá es la de solapamiento (sección 6 del spec): dos
- * funciones de la misma sala tienen que estar separadas por al menos 15
- * minutos entre el fin de una y el inicio de la siguiente. No se puede validar
- * con Zod porque depende de las funciones ya guardadas.
+ * La regla de solapamiento vive en `lib/cartelera.ts` como función pura. No se
+ * puede validar con Zod porque depende de las funciones ya guardadas: acá se
+ * consultan, se le pasan a la regla y su veredicto se traduce a un error.
  */
+import {
+  finConMargen,
+  funcionesEnConflicto,
+  MARGEN_ENTRE_FUNCIONES_MINUTOS,
+  type Franja,
+  type FuncionProgramada,
+} from "@/lib/cartelera";
 import { prisma } from "@/lib/db/client";
 import { ErrorDeConflicto, ErrorNoEncontrado } from "@/lib/errores";
 import type { CarteleraQuery, CrearFuncionInput } from "@/lib/schemas/funcion";
 import { DURACION_MAXIMA_MINUTOS } from "@/lib/schemas/pelicula";
-
-/** Margen mínimo entre el fin de una función y el inicio de la siguiente. */
-export const MARGEN_ENTRE_FUNCIONES_MINUTOS = 15;
 
 const UN_MINUTO_EN_MS = 60 * 1000;
 
@@ -43,27 +46,6 @@ const camposDeFuncion = {
   sala: { select: { id: true, nombre: true } },
 } as const;
 
-/** Una función vista solo como el rato que ocupa la sala. */
-type Franja = { inicio: Date; duracionMinutos: number };
-
-/** Momento en que la sala vuelve a quedar libre: fin de la película + margen. */
-function finConMargen({ inicio, duracionMinutos }: Franja) {
-  return inicio.getTime() + (duracionMinutos + MARGEN_ENTRE_FUNCIONES_MINUTOS) * UN_MINUTO_EN_MS;
-}
-
-/**
- * Si dos funciones de la misma sala se pisan, contando el margen.
- *
- * Cada función ocupa la sala desde su inicio hasta su fin más 15 minutos; hay
- * conflicto cuando esos dos tramos se tocan. Los bordes quedan así:
- * exactamente 15 minutos de separación está bien (el fin con margen coincide
- * con el inicio siguiente y `>` no lo cuenta), 14 minutos no, y una función
- * que arranca justo cuando termina la anterior tampoco.
- */
-export function seSolapan(a: Franja, b: Franja) {
-  return finConMargen(a) > b.inicio.getTime() && finConMargen(b) > a.inicio.getTime();
-}
-
 /**
  * Funciones de la sala que podrían pisarse con `nueva`.
  *
@@ -73,7 +55,10 @@ export function seSolapan(a: Franja, b: Franja) {
  * película más larga posible pudiera seguir en curso; el solapamiento real se
  * decide después, con la duración de cada una.
  */
-async function funcionesQuePuedenSolapar(salaId: string, nueva: Franja) {
+async function funcionesQuePuedenSolapar(
+  salaId: string,
+  nueva: Franja,
+): Promise<FuncionProgramada[]> {
   const desde = new Date(
     nueva.inicio.getTime() -
       (DURACION_MAXIMA_MINUTOS + MARGEN_ENTRE_FUNCIONES_MINUTOS) * UN_MINUTO_EN_MS,
@@ -138,7 +123,9 @@ export async function crearFuncion(datos: CrearFuncionInput) {
 
   const nueva: Franja = { inicio: datos.inicio, duracionMinutos: pelicula.duracionMinutos };
   const candidatas = await funcionesQuePuedenSolapar(sala.id, nueva);
-  const enConflicto = candidatas.find((funcion) => seSolapan(nueva, funcion));
+  // Las candidatas vienen ordenadas por inicio: el mensaje nombra la primera
+  // que se pisa, igual que antes de que la regla devolviera todas.
+  const [enConflicto] = funcionesEnConflicto(nueva, candidatas);
 
   if (enConflicto) {
     throw new ErrorDeConflicto(

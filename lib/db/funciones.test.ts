@@ -23,13 +23,7 @@ vi.mock("@/lib/db/client", () => ({
   },
 }));
 
-const {
-  MARGEN_ENTRE_FUNCIONES_MINUTOS,
-  seSolapan,
-  crearFuncion,
-  listarCartelera,
-  listarButacasDeFuncion,
-} = await import("./funciones");
+const { crearFuncion, listarCartelera, listarButacasDeFuncion } = await import("./funciones");
 
 const UN_MINUTO_EN_MS = 60 * 1000;
 
@@ -58,44 +52,6 @@ beforeEach(() => {
   buscarSala.mockResolvedValue({ ...sala });
   buscarFunciones.mockResolvedValue([]);
   crear.mockImplementation(async () => ({ id: "fun_nueva" }));
-});
-
-describe("seSolapan (regla de las 15 minutos)", () => {
-  // La existente ocupa la sala de 20:00 a 22:00, más el margen: 22:15.
-  const enSala = { inicio: alas(20), duracionMinutos: 120 };
-
-  it("deja pasar una función que arranca exactamente 15 minutos después", () => {
-    expect(seSolapan(enSala, { inicio: alas(22, 15), duracionMinutos: 90 })).toBe(false);
-  });
-
-  it("rechaza una función que arranca 14 minutos después: falta un minuto de margen", () => {
-    expect(seSolapan(enSala, { inicio: alas(22, 14), duracionMinutos: 90 })).toBe(true);
-  });
-
-  it("rechaza una función que arranca justo cuando termina la anterior", () => {
-    expect(seSolapan(enSala, { inicio: alas(22), duracionMinutos: 90 })).toBe(true);
-  });
-
-  it("rechaza una función que empieza en el medio de la anterior", () => {
-    expect(seSolapan(enSala, { inicio: alas(21), duracionMinutos: 90 })).toBe(true);
-  });
-
-  it("aplica el margen también hacia atrás: la nueva termina 14 minutos antes", () => {
-    // Termina a las 19:46 (19:46 + 14 = 20:00), le falta un minuto de margen.
-    expect(seSolapan(enSala, { inicio: alas(18, 46), duracionMinutos: 60 })).toBe(true);
-  });
-
-  it("deja pasar una función que termina 15 minutos antes", () => {
-    expect(seSolapan(enSala, { inicio: alas(18, 45), duracionMinutos: 60 })).toBe(false);
-  });
-
-  it("deja pasar funciones de horarios lejanos", () => {
-    expect(seSolapan(enSala, { inicio: alas(10), duracionMinutos: 120 })).toBe(false);
-  });
-
-  it("usa el margen que declara el módulo", () => {
-    expect(MARGEN_ENTRE_FUNCIONES_MINUTOS).toBe(15);
-  });
 });
 
 describe("crearFuncion", () => {
@@ -127,6 +83,19 @@ describe("crearFuncion", () => {
     buscarFunciones.mockResolvedValue([existente]);
 
     await expect(crearFuncion({ ...datos, inicio: alas(21) })).rejects.toThrow(/Duna/);
+  });
+
+  it("conserva el mensaje del 409: nombra la primera función en conflicto", async () => {
+    // 21:00 a 23:00 pisa las dos: Duna (20:00) y la de las 22:30.
+    buscarFunciones.mockResolvedValue([
+      existente,
+      { id: "fun_2", inicio: alas(22, 30), pelicula: { titulo: "Alien", duracionMinutos: 90 } },
+    ]);
+
+    await expect(crearFuncion({ ...datos, inicio: alas(21) })).rejects.toThrow(
+      'La sala Sala 1 ya tiene la función de "Duna" a las 2030-01-01T20:00:00.000Z (120 min). ' +
+        "Entre una función y la siguiente tienen que quedar al menos 15 minutos",
+    );
   });
 
   it("solo mira funciones de la sala indicada", async () => {
