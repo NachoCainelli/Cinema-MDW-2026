@@ -11,6 +11,7 @@
  */
 import { Prisma } from "@prisma/client";
 
+import { funcionYaEmpezo, veredictoDeButacas } from "@/lib/butacas";
 import { prisma } from "@/lib/db/client";
 import { ErrorDeConflicto, ErrorDePagoRechazado, ErrorNoEncontrado } from "@/lib/errores";
 import { PRECIO_ENTRADA, cobrar } from "@/lib/pagos";
@@ -80,7 +81,7 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
   });
   if (!funcion) throw new ErrorNoEncontrado("No existe la función indicada");
 
-  if (funcion.inicio.getTime() <= Date.now()) {
+  if (funcionYaEmpezo(funcion.inicio, new Date())) {
     throw new ErrorDeConflicto(
       `La función de "${funcion.pelicula.titulo}" ya empezó: no se pueden comprar entradas`,
     );
@@ -96,7 +97,7 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
   // estado: la única Compra que se persiste es la PAGADA (el pago rechazado no
   // llega a guardarse), así que toda Entrada que exista ocupa la butaca. Es lo
   // mismo que asume el índice único, que tampoco mira el estado.
-  const [butacas, ocupadas] = await Promise.all([
+  const [butacas, vendidas] = await Promise.all([
     prisma.butaca.findMany({
       where: { id: { in: datos.butacaIds }, salaId: funcion.salaId },
       select: { id: true },
@@ -109,9 +110,15 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
     }),
   ]);
 
+  const { fueraDeSala, ocupadas } = veredictoDeButacas(
+    datos.butacaIds,
+    butacas.map((butaca) => butaca.id),
+    vendidas.map((entrada) => entrada.butacaId),
+  );
+
   // El orden de los dos chequeos importa para el mensaje: una butaca que ni
   // siquiera es de esta sala no es un problema de disponibilidad.
-  if (butacas.length !== datos.butacaIds.length) {
+  if (fueraDeSala.length > 0) {
     throw new ErrorDeConflicto(
       "Alguna de las butacas elegidas no pertenece a la sala de esta función",
     );

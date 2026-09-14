@@ -6,6 +6,7 @@
  * puede validar con Zod porque depende de las funciones ya guardadas: acá se
  * consultan, se le pasan a la regla y su veredicto se traduce a un error.
  */
+import { veredictoDeButacas } from "@/lib/butacas";
 import {
   finConMargen,
   funcionesEnConflicto,
@@ -189,10 +190,18 @@ export async function listarButacasDeFuncion(funcionId: string) {
     }),
   ]);
 
-  const ocupadas = new Set(vendidas.map((entrada) => entrada.butacaId));
+  // Es la misma regla que usa la compra, con todas las butacas de la sala como
+  // pedido: lo que el mapa pinta ocupado es lo que la compra rechazaría.
+  const idsDeLaSala = butacas.map((butaca) => butaca.id);
+  const { ocupadas } = veredictoDeButacas(
+    idsDeLaSala,
+    idsDeLaSala,
+    vendidas.map((entrada) => entrada.butacaId),
+  );
+  const ocupadasPorId = new Set(ocupadas);
 
   return {
     funcion,
-    butacas: butacas.map((butaca) => ({ ...butaca, ocupada: ocupadas.has(butaca.id) })),
+    butacas: butacas.map((butaca) => ({ ...butaca, ocupada: ocupadasPorId.has(butaca.id) })),
   };
 }
