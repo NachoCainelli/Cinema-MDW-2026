@@ -9,7 +9,7 @@ import {
 function funcion(overrides: Partial<FuncionParaBaja> = {}): FuncionParaBaja {
   return {
     id: "funcion-1",
-    titulo: "Una película",
+    titulo: "Una pelicula",
     inicio: new Date("2026-09-15T20:00:00.000Z"),
     duracionMinutos: 120,
     ...overrides,
@@ -28,7 +28,7 @@ describe("funcionesQueImpidenBaja", () => {
     expect(funcionesQueImpidenBaja(funciones, ahora)).toEqual([]);
   });
 
-  it("falla: una función programada para mañana impide la baja", () => {
+  it("falla: una funcion programada para mañana impide la baja", () => {
     const funcionFutura = funcion({
       id: "f-futura",
       inicio: new Date("2026-09-16T20:00:00.000Z"),
@@ -38,7 +38,7 @@ describe("funcionesQueImpidenBaja", () => {
     expect(funcionesQueImpidenBaja([funcionFutura], ahora)).toEqual([funcionFutura]);
   });
 
-  it("borde: una función que empezó hace 10 minutos y dura 120 sigue en curso", () => {
+  it("borde: una funcion que empezo hace 10 minutos y dura 120 sigue en curso", () => {
     const funcionEnCurso = funcion({
       id: "f-en-curso",
       inicio: new Date(ahora.getTime() - 10 * 60 * 1000),
@@ -48,8 +48,8 @@ describe("funcionesQueImpidenBaja", () => {
     expect(funcionesQueImpidenBaja([funcionEnCurso], ahora)).toEqual([funcionEnCurso]);
   });
 
-  it("borde: una función que terminó hace un minuto no impide la baja", () => {
-    // Empezó hace 61 minutos y dura 60: terminó hace exactamente 1 minuto.
+  it("borde: una funcion que termino hace un minuto no impide la baja", () => {
+    // Empezo hace 61 minutos y dura 60: termino hace exactamente 1 minuto.
     const funcionTerminada = funcion({
       id: "f-terminada",
       inicio: new Date(ahora.getTime() - 61 * 60 * 1000),
@@ -69,7 +69,7 @@ describe("detalleDeFuncionesQueImpiden", () => {
     const funciones = Array.from({ length: 7 }, (_, indice) =>
       funcion({
         id: `f${indice}`,
-        titulo: `Película ${indice}`,
+        titulo: `Pelicula ${indice}`,
         inicio: new Date(2026, 8, 16 + indice, 20, 0),
       }),
     );
@@ -77,12 +77,16 @@ describe("detalleDeFuncionesQueImpiden", () => {
     const detalle = detalleDeFuncionesQueImpiden(funciones);
 
     expect(detalle).toContain("(7 en total)");
-    expect(detalle).toContain("Película 0");
-    expect(detalle).toContain("Película 4");
-    expect(detalle).not.toContain("Película 5");
+    expect(detalle).toContain("Pelicula 0");
+    expect(detalle).toContain("Pelicula 4");
+    expect(detalle).not.toContain("Pelicula 5");
   });
 
-  it("con una sola función, el total es 1", () => {
+  it("con una lista vacia, devuelve un string vacio en vez de uno roto", () => {
+    expect(detalleDeFuncionesQueImpiden([])).toBe("");
+  });
+
+  it("con una sola funcion, el total es 1", () => {
     const detalle = detalleDeFuncionesQueImpiden([funcion({ titulo: "Solita" })]);
 
     expect(detalle).toContain('"Solita"');

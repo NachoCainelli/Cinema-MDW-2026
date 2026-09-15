@@ -1,29 +1,34 @@
 /**
- * Capa de datos de Sala (H2): alta con generación de butacas, listado y
- * borrado lógico.
+ * Capa de datos de Sala (H2): alta con generacion de butacas, listado y
+ * borrado logico.
  *
- * El borrado es lógico y no físico: una sala con funciones pasadas está
+ * El borrado es logico y no fisico: una sala con funciones pasadas esta
  * referenciada por Entradas y Compras (el historial de ventas, H5/H6).
- * Borrarla de verdad se llevaría puesto ese historial, así que
+ * Borrarla de verdad se llevaria puesto ese historial, asi que
  * `eliminarSalaLogico` solo marca `eliminadaEn` y todas las lecturas filtran
  * por `eliminadaEn: null`.
  *
  * Consecuencia sobre el nombre: `Sala.nombre` es `@unique` a nivel base y el
- * borrado lógico no lo toca, así que el nombre de una sala eliminada queda
- * reservado para siempre. Es a propósito —ese nombre sigue vivo en los
- * reportes históricos y renombrarlo al borrar ensuciaría el dato—. `crearSala`
+ * borrado logico no lo toca, asi que el nombre de una sala eliminada queda
+ * reservado para siempre. Es a proposito —ese nombre sigue vivo en los
+ * reportes historicos y renombrarlo al borrar ensuciaria el dato—. `crearSala`
  * lo comunica con un 409 que aclara que la sala en conflicto puede estar
  * eliminada.
  */
 import { Prisma } from "@prisma/client";
 
-import { detalleDeFuncionesQueImpiden, funcionesQueImpidenBaja, UN_MINUTO_EN_MS } from "@/lib/bajas";
+import {
+  detalleDeFuncionesQueImpiden,
+  funcionesQueImpidenBaja,
+  MAXIMO_FUNCIONES_A_REVISAR_PARA_BAJA,
+  UN_MINUTO_EN_MS,
+} from "@/lib/bajas";
 import { prisma } from "@/lib/db/client";
 import { ErrorDeConflicto, ErrorNoEncontrado } from "@/lib/errores";
 import { DURACION_MAXIMA_MINUTOS } from "@/lib/schemas/pelicula";
 import type { CrearSalaInput, SalasQuery } from "@/lib/schemas/sala";
 
-/** Lo único que sale de esta capa hacia afuera. */
+/** Lo unico que sale de esta capa hacia afuera. */
 const camposPublicos = {
   id: true,
   nombre: true,
@@ -32,7 +37,7 @@ const camposPublicos = {
   creadaEn: true,
 } as const;
 
-/** Código de Prisma para "violaste una restricción de unicidad". */
+/** Codigo de Prisma para "violaste una restriccion de unicidad". */
 const VIOLACION_DE_UNICIDAD = "P2002";
 
 export async function crearSala(datos: CrearSalaInput) {
@@ -45,9 +50,9 @@ export async function crearSala(datos: CrearSalaInput) {
 
   // El nombre duplicado se detecta por el error de la base y no con un
   // `findUnique` previo: entre el "no existe" y el `create` pueden entrar dos
-  // requests con el mismo nombre y los dos lo verían libre. La restricción
-  // `@unique` de `Sala.nombre` es la única que no se puede ganar por carrera.
-  // Mismo patrón que `registrarUsuario` en lib/db/usuarios.ts.
+  // requests con el mismo nombre y los dos lo verian libre. La restriccion
+  // `@unique` de `Sala.nombre` es la unica que no se puede ganar por carrera.
+  // Mismo patron que `registrarUsuario` en lib/db/usuarios.ts.
   try {
     return await prisma.sala.create({
       data: {
@@ -89,19 +94,25 @@ export async function eliminarSalaLogico(id: string) {
   });
 
   if (!sala || sala.eliminadaEn !== null) {
-    throw new ErrorNoEncontrado(`No se encontró la sala con id ${id}`);
+    throw new ErrorNoEncontrado(`No se encontro la sala con id ${id}`);
   }
 
-  // Las funciones de una sala pueden ser de películas distintas, cada una con
-  // su propia duración, así que acá no se puede saber de antemano hasta
-  // cuándo hay que traer funciones. Por eso la consulta a la base sigue
-  // usando el techo de duración máxima como filtro de performance: cualquier
-  // función que arrancó hace más que la película más larga posible ya
-  // terminó seguro, y no hace falta traerla. Es una sobre-aproximación
-  // segura (un superconjunto de las que realmente importan), no la regla
-  // final. La regla exacta —por la duración real de cada película— la aplica
-  // después `funcionesQueImpidenBaja`, la misma que usa `darDeBajaPelicula`
-  // en lib/db/peliculas.ts.
+  // Las funciones de una sala pueden ser de peliculas distintas, cada una con
+  // su propia duracion, asi que `desde` sigue usando el techo de duracion
+  // maxima como filtro de performance: cualquier funcion que arranco hace mas
+  // que la pelicula mas larga posible ya termino seguro. Es una
+  // sobre-aproximacion segura (trae de mas, nunca de menos), no la regla
+  // final -esa la aplica despues `funcionesQueImpidenBaja`, en lib/bajas.ts,
+  // la misma que usa `darDeBajaPelicula` en lib/db/peliculas.ts-.
+  //
+  // Hacia el futuro no hay cota superior en el `where` (una funcion futura,
+  // por lejana que este, siempre impide la baja), asi que sin `take` la
+  // consulta traeria toda la cartelera programada de la sala. `orderBy:
+  // { inicio: "asc" }` + `take` (mismo patron que `funcionesQuePuedenSolapar`
+  // en lib/db/funciones.ts) la acota a las funciones mas proximas, que son
+  // justo las que le sirven al gestor para decidir que hacer. Se pide una de
+  // mas (+1) solo para poder avisar "mas de N" en el mensaje sin tener que
+  // contar aparte.
   const desde = new Date(Date.now() - DURACION_MAXIMA_MINUTOS * UN_MINUTO_EN_MS);
   const candidatas = await prisma.funcion.findMany({
     where: { salaId: id, inicio: { gte: desde } },
@@ -110,6 +121,8 @@ export async function eliminarSalaLogico(id: string) {
       inicio: true,
       pelicula: { select: { titulo: true, duracionMinutos: true } },
     },
+    orderBy: { inicio: "asc" },
+    take: MAXIMO_FUNCIONES_A_REVISAR_PARA_BAJA + 1,
   });
 
   const funciones = candidatas.map((funcion) => ({
@@ -119,12 +132,17 @@ export async function eliminarSalaLogico(id: string) {
     duracionMinutos: funcion.pelicula.duracionMinutos,
   }));
 
-  const funcionesQueImpiden = funcionesQueImpidenBaja(funciones, new Date());
+  const impedimentos = funcionesQueImpidenBaja(funciones, new Date());
 
-  if (funcionesQueImpiden.length > 0) {
+  if (impedimentos.length > 0) {
+    const huboMas = impedimentos.length > MAXIMO_FUNCIONES_A_REVISAR_PARA_BAJA;
+    const impedimentosAMostrar = huboMas
+      ? impedimentos.slice(0, MAXIMO_FUNCIONES_A_REVISAR_PARA_BAJA)
+      : impedimentos;
+
     throw new ErrorDeConflicto(
       `No se puede eliminar la sala "${sala.nombre}" porque tiene funciones en curso o ` +
-        `programadas: ${detalleDeFuncionesQueImpiden(funcionesQueImpiden)}.`,
+        `programadas: ${detalleDeFuncionesQueImpiden(impedimentosAMostrar, huboMas)}.`,
     );
   }
 
