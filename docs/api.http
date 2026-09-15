@@ -3,7 +3,8 @@
 # Se ejecutan desde VS Code con la extensión REST Client (humao.rest-client):
 # cada bloque separado por `###` se manda con "Send Request". Sirve como
 # documentación viva del contrato de `docs/api.md`: si un request de acá deja
-# de responder el status que dice su título, algo se rompió.
+# de responder el status que dice su título, algo se rompió. Hay un bloque por
+# cada error del catálogo de `docs/api.md` ("Los errores, en detalle").
 #
 # Los requests se encadenan: los que tienen `# @name` guardan su respuesta y
 # los de abajo leen de ahí los ids (`{{nombre.response.body.$.id}}`), así que
@@ -16,17 +17,19 @@
 # AUTH_STUB_HABILITADO="true" en `.env.local`.
 
 # ── Entorno ──────────────────────────────────────────────────────────────────
-# Para correr la misma tanda contra Vercel se cambia SOLO la línea de @host.
+# Para correr la misma tanda contra Vercel se cambia SOLO la línea de @baseUrl.
 @local = http://localhost:3000
 @produccion = https://cinema-mdw-2026.vercel.app
-@host = {{local}}
+@baseUrl = {{local}}
 
 # Sesión de prueba: el stub de `lib/auth.ts` busca este email en la base y toma
 # de ahí el id y el rol. Son los usuarios que crea `pnpm db:seed`.
 #
-# En producción el stub está apagado (TODO clase 6, Auth.js), así que todo lo
-# que manda `x-usuario-prueba` responde 401 aunque el título diga otra cosa.
-# Contra Vercel se verifican los endpoints públicos y esos 401.
+# En producción el stub está apagado, así que todo lo que manda
+# `x-usuario-prueba` responde 401 aunque el título diga otra cosa. Contra
+# Vercel se verifican los endpoints públicos y los 401 (los bloques "sin
+# sesión" no dependen de ids encadenados, para que corran igual allá); el resto
+# es verificable en clase 6, con Auth.js.
 @admin = admin@ejemplo.com
 @gestor = gestor@ejemplo.com
 @usuario = usuario@ejemplo.com
@@ -42,7 +45,7 @@
 
 ### Flujo 0.a · Preparación: sala nueva (admin) → 201 con la sala; sus butacas se generan solas
 # @name salaDelFlujo
-POST {{host}}/api/salas
+POST {{baseUrl}}/api/salas
 Content-Type: application/json
 x-usuario-prueba: {{admin}}
 
@@ -54,7 +57,7 @@ x-usuario-prueba: {{admin}}
 
 ### Flujo 0.b · Preparación: película nueva (gestor) → 201 con la película
 # @name peliculaDelFlujo
-POST {{host}}/api/peliculas
+POST {{baseUrl}}/api/peliculas
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -68,7 +71,7 @@ x-usuario-prueba: {{gestor}}
 
 ### Flujo 1 · Crear función (gestor) para mañana → 201 con la función, su película y su sala
 # @name funcionDelFlujo
-POST {{host}}/api/funciones
+POST {{baseUrl}}/api/funciones
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -79,15 +82,15 @@ x-usuario-prueba: {{gestor}}
 }
 
 ### Flujo 2 · Ver la cartelera (público, sin sesión) → 200; la función del paso 1 aparece
-GET {{host}}/api/funciones?limite=100
+GET {{baseUrl}}/api/funciones?limite=100
 
 ### Flujo 3 · Ver las butacas de la función → 200 con las 40 butacas y `ocupada: false`
 # @name butacasDelFlujo
-GET {{host}}/api/funciones/{{funcionDelFlujo.response.body.$.id}}/butacas
+GET {{baseUrl}}/api/funciones/{{funcionDelFlujo.response.body.$.id}}/butacas
 
 ### Flujo 4 · Comprar dos butacas (usuario) → 201 con la compra PAGADA y una entrada por butaca
 # @name compraDelFlujo
-POST {{host}}/api/compras
+POST {{baseUrl}}/api/compras
 Content-Type: application/json
 x-usuario-prueba: {{usuario}}
 
@@ -100,15 +103,81 @@ x-usuario-prueba: {{usuario}}
 }
 
 ### Flujo 5 · Ver el historial (usuario) → 200; la compra del paso 4 es la primera
-GET {{host}}/api/compras
+GET {{baseUrl}}/api/compras
 x-usuario-prueba: {{usuario}}
 
 ### Flujo 6 · Las butacas compradas ahora figuran ocupadas → 200 con las dos primeras en `ocupada: true`
-GET {{host}}/api/funciones/{{funcionDelFlujo.response.body.$.id}}/butacas
+GET {{baseUrl}}/api/funciones/{{funcionDelFlujo.response.body.$.id}}/butacas
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# CASOS POR ENDPOINT: éxito, datos inválidos y recurso inexistente
+# PREPARACIÓN DE DOS CASOS DE H4
+#
+# Una segunda sala con una función que empieza a los 30 segundos. Sirve para
+# dos errores de POST /api/compras que la sala del flujo no alcanza a provocar:
+# - butaca de otra sala: hace falta el id de una butaca que exista y que sea de
+#   una sala distinta a la de la función;
+# - función ya empezada: la API no deja publicar funciones en el pasado, así que
+#   hay que publicar una que empiece enseguida y esperar. Para cuando la tanda
+#   llega a H4, los 30 segundos ya pasaron.
+# ═════════════════════════════════════════════════════════════════════════════
+
+### Prep H4.a · Sala auxiliar (admin) → 201
+# @name salaAuxiliar
+POST {{baseUrl}}/api/salas
+Content-Type: application/json
+x-usuario-prueba: {{admin}}
+
+{
+  "nombre": "Sala auxiliar {{$timestamp}}",
+  "filas": 2,
+  "columnas": 3
+}
+
+### Prep H4.b · Función en la sala auxiliar que empieza en 30 segundos (gestor) → 201
+# @name funcionPorEmpezar
+POST {{baseUrl}}/api/funciones
+Content-Type: application/json
+x-usuario-prueba: {{gestor}}
+
+{
+  "peliculaId": "{{peliculaDelFlujo.response.body.$.id}}",
+  "salaId": "{{salaAuxiliar.response.body.$.id}}",
+  "inicio": "{{$datetime iso8601 30 s}}"
+}
+
+### Prep H4.c · Butacas de la sala auxiliar → 200 con sus 6 butacas
+# @name butacasDeOtraSala
+GET {{baseUrl}}/api/funciones/{{funcionPorEmpezar.response.body.$.id}}/butacas
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ERRORES TRANSVERSALES
+#
+# Los que no son de un endpoint en particular (tabla "Errores transversales" de
+# `docs/api.md`). El 400 de Zod, el 401, el 403, el 404 y el 402 tienen su
+# bloque en cada endpoint, más abajo. Quedan dos sin bloque, a propósito:
+# - 404 de un recurso ajeno: hoy ninguna ruta expone por id un recurso con
+#   dueño (no hay `GET /api/compras/:id`); lo más cercano es el último bloque
+#   del archivo, que muestra que el `usuarioId` de la query no abre compras
+#   ajenas.
+# - 500: sale solo ante un error no contemplado, y la API no tiene una forma
+#   legítima de provocarlo desde afuera. Lo cubren los tests de
+#   `lib/api/respuestas.ts`.
+# ═════════════════════════════════════════════════════════════════════════════
+
+### Transversal · Body que no es JSON válido → 400 "El cuerpo del request no es JSON válido", sin `detalles`
+# Contra un endpoint público, para que corra igual en producción: en uno con
+# sesión, la autorización va primero y respondería 401 antes de leer el body.
+POST {{baseUrl}}/api/usuarios
+Content-Type: application/json
+
+{ "email": "mal@formado.com", "nombre": "Sin la llave de cierre"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CASOS POR ENDPOINT: éxito, datos inválidos, recurso inexistente y los
+# errores de sesión y de negocio de cada uno
 #
 # En las altas y los listados no hay "recurso inexistente": el tercer caso es
 # el error propio de cada endpoint (duplicado, rol incorrecto, sin sesión).
@@ -118,7 +187,7 @@ GET {{host}}/api/funciones/{{funcionDelFlujo.response.body.$.id}}/butacas
 
 ### H1 · Registro exitoso → 201 con el usuario creado (sin contraseña ni hash)
 # @name registro
-POST {{host}}/api/usuarios
+POST {{baseUrl}}/api/usuarios
 Content-Type: application/json
 
 {
@@ -128,7 +197,7 @@ Content-Type: application/json
 }
 
 ### H1 · Datos inválidos: contraseña de menos de 8 caracteres → 400 con el detalle por campo
-POST {{host}}/api/usuarios
+POST {{baseUrl}}/api/usuarios
 Content-Type: application/json
 
 {
@@ -138,7 +207,7 @@ Content-Type: application/json
 }
 
 ### H1 · Email ya registrado → 409
-POST {{host}}/api/usuarios
+POST {{baseUrl}}/api/usuarios
 Content-Type: application/json
 
 {
@@ -148,7 +217,7 @@ Content-Type: application/json
 }
 
 ### H1 · El rol del body se ignora → 201 con rol USUARIO, nunca ADMINISTRADOR
-POST {{host}}/api/usuarios
+POST {{baseUrl}}/api/usuarios
 Content-Type: application/json
 
 {
@@ -162,7 +231,7 @@ Content-Type: application/json
 
 ### H2 · Crear sala → 201 con la sala creada (es la que se da de baja en H5)
 # @name salaNueva
-POST {{host}}/api/salas
+POST {{baseUrl}}/api/salas
 Content-Type: application/json
 x-usuario-prueba: {{admin}}
 
@@ -173,7 +242,7 @@ x-usuario-prueba: {{admin}}
 }
 
 ### H2 · Crear sala con datos inválidos: filas negativas → 400
-POST {{host}}/api/salas
+POST {{baseUrl}}/api/salas
 Content-Type: application/json
 x-usuario-prueba: {{admin}}
 
@@ -184,7 +253,7 @@ x-usuario-prueba: {{admin}}
 }
 
 ### H2 · Crear sala con un nombre que ya existe → 409
-POST {{host}}/api/salas
+POST {{baseUrl}}/api/salas
 Content-Type: application/json
 x-usuario-prueba: {{admin}}
 
@@ -194,39 +263,73 @@ x-usuario-prueba: {{admin}}
   "columnas": 10
 }
 
+### H2 · Crear sala sin sesión → 401
+POST {{baseUrl}}/api/salas
+Content-Type: application/json
+
+{
+  "nombre": "Sala sin sesión",
+  "filas": 10,
+  "columnas": 10
+}
+
+### H2 · Crear sala con un rol que no es ADMINISTRADOR → 403
+POST {{baseUrl}}/api/salas
+Content-Type: application/json
+x-usuario-prueba: {{gestor}}
+
+{
+  "nombre": "Sala del gestor {{$timestamp}}",
+  "filas": 10,
+  "columnas": 10
+}
+
 # ── H2 · GET /api/salas (ADMINISTRADOR) ──────────────────────────────────────
 
 ### H2 · Listar salas → 200 con las salas vigentes (las eliminadas no aparecen)
-GET {{host}}/api/salas
+GET {{baseUrl}}/api/salas
 x-usuario-prueba: {{admin}}
 
 ### H2 · Listar salas con un límite fuera de rango (máximo 100) → 400
-GET {{host}}/api/salas?limite=999
+GET {{baseUrl}}/api/salas?limite=999
 x-usuario-prueba: {{admin}}
 
 ### H2 · Listar salas sin sesión → 401
-GET {{host}}/api/salas
+GET {{baseUrl}}/api/salas
+
+### H2 · Listar salas con un rol que no es ADMINISTRADOR → 403
+GET {{baseUrl}}/api/salas
+x-usuario-prueba: {{usuario}}
 
 # ── H5 · DELETE /api/salas/:id (ADMINISTRADOR) ───────────────────────────────
 
 ### H5 · Eliminar una sala sin funciones → 204 sin cuerpo (baja lógica)
-DELETE {{host}}/api/salas/{{salaNueva.response.body.$.id}}
+DELETE {{baseUrl}}/api/salas/{{salaNueva.response.body.$.id}}
 x-usuario-prueba: {{admin}}
 
 ### H5 · Eliminar una sala con funciones en curso o programadas → 409
 # La sala del flujo tiene la función de mañana.
-DELETE {{host}}/api/salas/{{salaDelFlujo.response.body.$.id}}
+DELETE {{baseUrl}}/api/salas/{{salaDelFlujo.response.body.$.id}}
 x-usuario-prueba: {{admin}}
 
 ### H5 · Eliminar una sala inexistente → 404
-DELETE {{host}}/api/salas/id_que_no_existe
+DELETE {{baseUrl}}/api/salas/id_que_no_existe
 x-usuario-prueba: {{admin}}
+
+### H5 · Eliminar una sala sin sesión → 401, antes de mirar si el id existe
+DELETE {{baseUrl}}/api/salas/id_que_no_existe
+
+### H5 · Eliminar una sala con un rol que no es ADMINISTRADOR → 403
+# Es la sala del flujo: si la autorización fallara, la baja igual rebotaría
+# con 409 y la tanda no se rompe.
+DELETE {{baseUrl}}/api/salas/{{salaDelFlujo.response.body.$.id}}
+x-usuario-prueba: {{gestor}}
 
 # ── H6 · POST /api/peliculas (GESTOR_CARTELERA) ──────────────────────────────
 
 ### H6 · Crear película → 201 con la película creada (es la que se edita y se da de baja abajo)
 # @name peliculaNueva
-POST {{host}}/api/peliculas
+POST {{baseUrl}}/api/peliculas
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -239,7 +342,7 @@ x-usuario-prueba: {{gestor}}
 }
 
 ### H6 · Crear película con datos inválidos: clasificación fuera de la lista cerrada → 400
-POST {{host}}/api/peliculas
+POST {{baseUrl}}/api/peliculas
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -251,8 +354,20 @@ x-usuario-prueba: {{gestor}}
   "categoria": "DRAMA"
 }
 
+### H6 · Crear película sin sesión → 401
+POST {{baseUrl}}/api/peliculas
+Content-Type: application/json
+
+{
+  "titulo": "Una película",
+  "sinopsis": "De qué se trata",
+  "duracionMinutos": 120,
+  "clasificacion": "ATP",
+  "categoria": "DRAMA"
+}
+
 ### H6 · Crear película con un rol que no es el de cartelera → 403
-POST {{host}}/api/peliculas
+POST {{baseUrl}}/api/peliculas
 Content-Type: application/json
 x-usuario-prueba: {{usuario}}
 
@@ -267,22 +382,26 @@ x-usuario-prueba: {{usuario}}
 # ── H6 · GET /api/peliculas (GESTOR_CARTELERA) ───────────────────────────────
 
 ### H6 · Listar películas en cartelera → 200 (las dadas de baja no aparecen)
-GET {{host}}/api/peliculas
+GET {{baseUrl}}/api/peliculas
 x-usuario-prueba: {{gestor}}
 
 ### H6 · Listar con un límite fuera de rango (máximo 100) → 400
-GET {{host}}/api/peliculas?limite=999
+GET {{baseUrl}}/api/peliculas?limite=999
 x-usuario-prueba: {{gestor}}
 
 ### H6 · Listar sin sesión → 401
 # El catálogo del gestor no es público: la vitrina es GET /api/funciones.
-GET {{host}}/api/peliculas
+GET {{baseUrl}}/api/peliculas
+
+### H6 · Listar con un rol que no es el de cartelera → 403
+GET {{baseUrl}}/api/peliculas
+x-usuario-prueba: {{usuario}}
 
 # ── H6 · PATCH /api/peliculas/:id (GESTOR_CARTELERA) ─────────────────────────
 
 ### H6 · Editar una película → 200 con la película actualizada
 # Solo se mandan los campos que cambian: es PATCH, no PUT.
-PATCH {{host}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
+PATCH {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -292,7 +411,7 @@ x-usuario-prueba: {{gestor}}
 }
 
 ### H6 · Editar con datos inválidos: duración fuera de rango → 400
-PATCH {{host}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
+PATCH {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -301,7 +420,7 @@ x-usuario-prueba: {{gestor}}
 }
 
 ### H6 · Editar con un campo mal escrito → 400 (no un 200 que no cambió nada)
-PATCH {{host}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
+PATCH {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -310,7 +429,7 @@ x-usuario-prueba: {{gestor}}
 }
 
 ### H6 · Editar una película inexistente → 404
-PATCH {{host}}/api/peliculas/id_que_no_existe
+PATCH {{baseUrl}}/api/peliculas/id_que_no_existe
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -318,25 +437,42 @@ x-usuario-prueba: {{gestor}}
   "titulo": "Da igual"
 }
 
+### H6 · Editar una película sin sesión → 401, antes de mirar si el id existe
+PATCH {{baseUrl}}/api/peliculas/id_que_no_existe
+Content-Type: application/json
+
+{
+  "titulo": "Da igual"
+}
+
+### H6 · Editar una película con un rol que no es el de cartelera → 403
+PATCH {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
+Content-Type: application/json
+x-usuario-prueba: {{usuario}}
+
+{
+  "titulo": "Editada por quien no debía"
+}
+
 # ── H6 · DELETE /api/peliculas/:id (GESTOR_CARTELERA) ────────────────────────
 
 ### H6 · Sacar de cartelera una película sin funciones pendientes → 204 sin cuerpo
 # Baja lógica: deja de listarse y de admitir funciones nuevas, pero sus
 # funciones pasadas y las compras que las tienen siguen intactas.
-DELETE {{host}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
+DELETE {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
 x-usuario-prueba: {{gestor}}
 
 ### H6 · Sacar de cartelera una película con funciones en curso o programadas → 409
 # La película del flujo tiene la función de mañana.
-DELETE {{host}}/api/peliculas/{{peliculaDelFlujo.response.body.$.id}}
+DELETE {{baseUrl}}/api/peliculas/{{peliculaDelFlujo.response.body.$.id}}
 x-usuario-prueba: {{gestor}}
 
 ### H6 · Sacar de cartelera una película inexistente → 404
-DELETE {{host}}/api/peliculas/id_que_no_existe
+DELETE {{baseUrl}}/api/peliculas/id_que_no_existe
 x-usuario-prueba: {{gestor}}
 
 ### H6 · Editar la película recién dada de baja → 404, igual que si no existiera
-PATCH {{host}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
+PATCH {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -344,11 +480,20 @@ x-usuario-prueba: {{gestor}}
   "titulo": "Ya no está en cartelera"
 }
 
+### H6 · Sacar de cartelera sin sesión → 401, antes de mirar si el id existe
+DELETE {{baseUrl}}/api/peliculas/id_que_no_existe
+
+### H6 · Sacar de cartelera con un rol que no es el de cartelera → 403
+# Es la película del flujo: si la autorización fallara, la baja igual
+# rebotaría con 409 y la tanda no se rompe.
+DELETE {{baseUrl}}/api/peliculas/{{peliculaDelFlujo.response.body.$.id}}
+x-usuario-prueba: {{usuario}}
+
 # ── H3 · POST /api/funciones (GESTOR_CARTELERA) ──────────────────────────────
 # El caso de éxito es el paso 1 del flujo.
 
 ### H3 · Publicar una función con fecha en el pasado → 400 con el detalle por campo
-POST {{host}}/api/funciones
+POST {{baseUrl}}/api/funciones
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -359,7 +504,7 @@ x-usuario-prueba: {{gestor}}
 }
 
 ### H3 · Publicar una función de una película inexistente → 404
-POST {{host}}/api/funciones
+POST {{baseUrl}}/api/funciones
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -369,8 +514,19 @@ x-usuario-prueba: {{gestor}}
   "inicio": "{{$datetime iso8601 2 d}}"
 }
 
+### H3 · Publicar una función en una sala inexistente → 404
+POST {{baseUrl}}/api/funciones
+Content-Type: application/json
+x-usuario-prueba: {{gestor}}
+
+{
+  "peliculaId": "{{peliculaDelFlujo.response.body.$.id}}",
+  "salaId": "no-existe",
+  "inicio": "{{$datetime iso8601 2 d}}"
+}
+
 ### H3 · Solapamiento: otra función en la misma sala a la misma hora que la del flujo → 409
-POST {{host}}/api/funciones
+POST {{baseUrl}}/api/funciones
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -380,8 +536,42 @@ x-usuario-prueba: {{gestor}}
   "inicio": "{{funcionDelFlujo.response.body.$.inicio}}"
 }
 
+### H3 · Publicar una función de una película dada de baja → 409
+# La película que se sacó de cartelera en H6.
+POST {{baseUrl}}/api/funciones
+Content-Type: application/json
+x-usuario-prueba: {{gestor}}
+
+{
+  "peliculaId": "{{peliculaNueva.response.body.$.id}}",
+  "salaId": "{{salaDelFlujo.response.body.$.id}}",
+  "inicio": "{{$datetime iso8601 4 d}}"
+}
+
+### H3 · Publicar una función en una sala eliminada → 409
+# La sala que se dio de baja en H5.
+POST {{baseUrl}}/api/funciones
+Content-Type: application/json
+x-usuario-prueba: {{gestor}}
+
+{
+  "peliculaId": "{{peliculaDelFlujo.response.body.$.id}}",
+  "salaId": "{{salaNueva.response.body.$.id}}",
+  "inicio": "{{$datetime iso8601 4 d}}"
+}
+
+### H3 · Publicar una función sin sesión → 401
+POST {{baseUrl}}/api/funciones
+Content-Type: application/json
+
+{
+  "peliculaId": "no-existe",
+  "salaId": "no-existe",
+  "inicio": "2030-01-01T20:00:00.000Z"
+}
+
 ### H3 · Publicar una función sin el rol GESTOR_CARTELERA → 403
-POST {{host}}/api/funciones
+POST {{baseUrl}}/api/funciones
 Content-Type: application/json
 x-usuario-prueba: {{usuario}}
 
@@ -395,30 +585,31 @@ x-usuario-prueba: {{usuario}}
 
 ### H3 · Cartelera pública → 200, sin sesión, solo funciones futuras
 # @name cartelera
-GET {{host}}/api/funciones?limite=5
+GET {{baseUrl}}/api/funciones?limite=5
 
 ### H3 · Cartelera con un límite fuera de rango (máximo 100) → 400
-GET {{host}}/api/funciones?limite=999
+GET {{baseUrl}}/api/funciones?limite=999
 
 ### H3 · Cartelera con un límite que no es un número → 400
-GET {{host}}/api/funciones?limite=muchas
+GET {{baseUrl}}/api/funciones?limite=muchas
 
 # ── H3 · GET /api/funciones/:id/butacas (público) ────────────────────────────
 # El id de la ruta es cualquier texto no vacío, así que no hay un 400 que se
 # pueda provocar: los casos son éxito e inexistente. Estos dos corren igual en
-# producción, porque el id sale de la cartelera y no del flujo.
+# producción, porque el id sale de la cartelera y no del flujo (si la cartelera
+# de producción está vacía, el primero no tiene id para pedir).
 
 ### H3 · Butacas de la primera función de la cartelera → 200 con cada butaca y su `ocupada`
-GET {{host}}/api/funciones/{{cartelera.response.body.$[0].id}}/butacas
+GET {{baseUrl}}/api/funciones/{{cartelera.response.body.$[0].id}}/butacas
 
 ### H3 · Butacas de una función inexistente → 404
-GET {{host}}/api/funciones/no-existe/butacas
+GET {{baseUrl}}/api/funciones/no-existe/butacas
 
 # ── H4 · POST /api/compras (USUARIO) ─────────────────────────────────────────
 # El caso de éxito es el paso 4 del flujo.
 
 ### H4 · Comprar sin butacas seleccionadas → 400 con el detalle por campo
-POST {{host}}/api/compras
+POST {{baseUrl}}/api/compras
 Content-Type: application/json
 x-usuario-prueba: {{usuario}}
 
@@ -428,7 +619,7 @@ x-usuario-prueba: {{usuario}}
 }
 
 ### H4 · Comprar para una función inexistente → 404
-POST {{host}}/api/compras
+POST {{baseUrl}}/api/compras
 Content-Type: application/json
 x-usuario-prueba: {{usuario}}
 
@@ -438,7 +629,7 @@ x-usuario-prueba: {{usuario}}
 }
 
 ### H4 · Sobreventa: una butaca que ya se vendió en el paso 4 → 409, sin cobrar
-POST {{host}}/api/compras
+POST {{baseUrl}}/api/compras
 Content-Type: application/json
 x-usuario-prueba: {{usuario}}
 
@@ -448,17 +639,41 @@ x-usuario-prueba: {{usuario}}
 }
 
 ### H4 · Butaca que no es de la sala de la función → 409
-POST {{host}}/api/compras
+# Una butaca que existe, pero de la sala auxiliar. Un id que no existe cae en
+# el mismo 409: las butacas se buscan acotadas a la sala de la función.
+POST {{baseUrl}}/api/compras
 Content-Type: application/json
 x-usuario-prueba: {{usuario}}
 
 {
   "funcionId": "{{funcionDelFlujo.response.body.$.id}}",
+  "butacaIds": ["{{butacasDeOtraSala.response.body.$.butacas[0].id}}"]
+}
+
+### H4 · Comprar para una función que ya empezó → 409, sin cobrar
+# La función de la preparación de H4, que empezó 30 segundos después de
+# crearse. Si todavía no empezó, responde 201 y compra la butaca: esperar y
+# volver a mandar con otra butaca de la sala auxiliar.
+POST {{baseUrl}}/api/compras
+Content-Type: application/json
+x-usuario-prueba: {{usuario}}
+
+{
+  "funcionId": "{{funcionPorEmpezar.response.body.$.id}}",
+  "butacaIds": ["{{butacasDeOtraSala.response.body.$.butacas[1].id}}"]
+}
+
+### H4 · Comprar sin sesión → 401
+POST {{baseUrl}}/api/compras
+Content-Type: application/json
+
+{
+  "funcionId": "no-existe",
   "butacaIds": ["no-existe"]
 }
 
 ### H4 · Comprar sin el rol USUARIO → 403
-POST {{host}}/api/compras
+POST {{baseUrl}}/api/compras
 Content-Type: application/json
 x-usuario-prueba: {{gestor}}
 
@@ -470,7 +685,7 @@ x-usuario-prueba: {{gestor}}
 ### H4 · Pago rechazado → 402 y la compra no se crea
 # Solo con PAGO_MOCK_TASA_RECHAZO="1" en `.env.local` (y reiniciando `pnpm dev`);
 # con la configuración normal responde 201 y compra la butaca.
-POST {{host}}/api/compras
+POST {{baseUrl}}/api/compras
 Content-Type: application/json
 x-usuario-prueba: {{usuario}}
 
@@ -482,16 +697,20 @@ x-usuario-prueba: {{usuario}}
 # ── H4 · GET /api/compras (USUARIO) ──────────────────────────────────────────
 
 ### H4 · Historial del usuario de la sesión → 200 con sus compras, las más nuevas primero
-GET {{host}}/api/compras
+GET {{baseUrl}}/api/compras
 x-usuario-prueba: {{usuario}}
 
 ### H4 · Historial con un límite fuera de rango → 400
-GET {{host}}/api/compras?limite=999
+GET {{baseUrl}}/api/compras?limite=999
 x-usuario-prueba: {{usuario}}
 
 ### H4 · Historial sin sesión → 401
-GET {{host}}/api/compras
+GET {{baseUrl}}/api/compras
+
+### H4 · Historial con un rol que no es USUARIO → 403
+GET {{baseUrl}}/api/compras
+x-usuario-prueba: {{gestor}}
 
 ### H4 · El usuarioId de la query se ignora → 200 y siguen viéndose solo las compras propias
-GET {{host}}/api/compras?usuarioId=otro-usuario
+GET {{baseUrl}}/api/compras?usuarioId=otro-usuario
 x-usuario-prueba: {{usuario}}

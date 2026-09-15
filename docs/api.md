@@ -89,7 +89,9 @@ Todo error de la API devuelve el mismo cuerpo, sin importar el endpoint:
 Son dos audiencias distintas en el mismo cuerpo. `error` es el mensaje pensado para mostrarse tal
 cual a quien usa la aplicación. `detalles` solo aparece en los 400 de validación de Zod: es el dato
 que un cliente puede usar para marcar el campo con error en un formulario — cada entrada trae el
-`campo` (la ruta dentro del body, p. ej. `"filas"`) y el `mensaje` puntual de esa regla.
+`campo` (la ruta dentro del body, p. ej. `"filas"`) y el `mensaje` puntual de esa regla. Cuando la
+regla es sobre el body entero y no sobre un campo —el `PATCH /api/peliculas/:id` sin ningún campo
+conocido—, `campo` llega vacío (`""`).
 
 Un **500** nunca devuelve el `message` real del error: el detalle queda en el log del servidor
 (`console.error` en `respuestaDeError`, `lib/api/respuestas.ts`) y quien llama solo recibe "Error
@@ -134,7 +136,7 @@ de "editar película" en el spec).
 | `DELETE /api/peliculas/:id` | La película no existe, o ya estaba dada de baja | 404 | "No se encontró la película con id `<id>`" | H6, criterio 4 |
 | `DELETE /api/peliculas/:id` | La película tiene una o más funciones futuras o en curso | 409 | 'No se puede sacar de cartelera "`<título>`" porque tiene funciones en curso o programadas. Hay que esperar a que terminen o darlas de baja primero.' | H6, criterio 2 |
 | `POST /api/funciones` | La fecha/hora de la función es anterior a la actual | 400 | "La función no puede empezar en el pasado" | H3, criterio 3 |
-| `POST /api/funciones` | La sala ya tiene otra función que se superpone en horario (margen de 15 min) | 409 | 'La sala `<nombre>` ya tiene la función de "`<título>`" a las `<hora>` (`<duración>` min). Entre una función y la siguiente tienen que quedar al menos 15 minutos' | H3, criterio 2 |
+| `POST /api/funciones` | La sala ya tiene otra función que se superpone en horario (margen de 15 min) | 409 | 'La sala `<nombre>` ya tiene la función de "`<título>`" a las `<inicio>` (`<duración>` min). Entre una función y la siguiente tienen que quedar al menos 15 minutos' — `<inicio>` es la fecha y hora completas en ISO 8601 y en UTC (p. ej. `2026-09-16T21:04:52.813Z`), no solo la hora | H3, criterio 2 |
 | `POST /api/funciones` | La película está dada de baja | 409 | 'La película "`<título>`" está fuera de cartelera: no admite funciones nuevas' | H3, criterio 4 |
 | `POST /api/funciones` | La sala está eliminada | 409 | 'La sala `<nombre>` está eliminada: no admite funciones nuevas' | H5, criterio 1* |
 | `POST /api/compras` | No se seleccionó ninguna butaca | 400 | "Tenés que seleccionar al menos una butaca" | H4, criterio 4 |
