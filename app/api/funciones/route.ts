@@ -14,8 +14,8 @@ import { carteleraQuerySchema, crearFuncionSchema } from "@/lib/schemas/funcion"
  */
 export async function POST(request: Request) {
   try {
-    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const datos = crearFuncionSchema.parse(await request.json()); // 400
+    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const funcion = await crearFuncion(datos); // 404 / 409
     return NextResponse.json(funcion, { status: 201 });
   } catch (error) {

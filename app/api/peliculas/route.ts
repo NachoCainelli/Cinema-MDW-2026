@@ -13,8 +13,8 @@ import { crearPeliculaSchema, peliculasQuerySchema } from "@/lib/schemas/pelicul
  */
 export async function POST(request: Request) {
   try {
-    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const datos = crearPeliculaSchema.parse(await request.json()); // 400
+    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const pelicula = await crearPelicula(datos);
     return NextResponse.json(pelicula, { status: 201 });
   } catch (error) {
@@ -31,9 +31,9 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
-    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const { searchParams } = new URL(request.url);
     const query = peliculasQuerySchema.parse(Object.fromEntries(searchParams)); // 400
+    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const peliculas = await listarPeliculas(query);
     return NextResponse.json(peliculas);
   } catch (error) {

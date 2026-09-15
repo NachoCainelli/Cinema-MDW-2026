@@ -24,9 +24,14 @@
 # Sesión de prueba: el stub de `lib/auth.ts` busca este email en la base y toma
 # de ahí el id y el rol. Son los usuarios que crea `pnpm db:seed`.
 #
-# En producción el stub está apagado (TODO clase 6, Auth.js), así que todo lo
-# que manda `x-usuario-prueba` responde 401 aunque el título diga otra cosa.
-# Contra Vercel se verifican los endpoints públicos y esos 401.
+# En producción el stub está apagado, así que todo lo que manda
+# `x-usuario-prueba` responde 401 aunque el título diga otra cosa. La excepción
+# son los que esperan 400: la validación va antes que la autorización, así que
+# esos siguen dando 400. Contra Vercel se verifican los endpoints públicos, los
+# 400 y los 401.
+#
+# TODO (clase 6): con Auth.js el stub se borra y estos requests pasan a usar
+# la sesión real.
 @admin = admin@ejemplo.com
 @gestor = gestor@ejemplo.com
 @usuario = usuario@ejemplo.com

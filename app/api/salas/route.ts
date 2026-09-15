@@ -6,9 +6,9 @@ import { crearSala, listarSalas } from "@/lib/db/salas";
 
 export async function GET(request: Request) {
   try {
-    await requerirUsuario("ADMINISTRADOR");
     const { searchParams } = new URL(request.url);
     const query = salasQuerySchema.parse(Object.fromEntries(searchParams));
+    await requerirUsuario("ADMINISTRADOR");
     const salas = await listarSalas(query);
     return NextResponse.json(salas, { status: 200 });
   } catch (error) {
@@ -18,9 +18,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requerirUsuario("ADMINISTRADOR");
     const json = await request.json();
     const datos = crearSalaSchema.parse(json);
+    await requerirUsuario("ADMINISTRADOR");
     const sala = await crearSala(datos);
     return NextResponse.json(sala, { status: 201 });
   } catch (error) {
