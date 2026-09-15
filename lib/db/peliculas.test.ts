@@ -3,12 +3,12 @@ import { Prisma } from "@prisma/client";
 
 import { ErrorDeConflicto, ErrorNoEncontrado } from "@/lib/errores";
 
-const { crear, listar, buscar, actualizar, contar } = vi.hoisted(() => ({
+const { crear, listar, buscar, actualizar, buscarFunciones } = vi.hoisted(() => ({
   crear: vi.fn(),
   listar: vi.fn(),
   buscar: vi.fn(),
   actualizar: vi.fn(),
-  contar: vi.fn(),
+  buscarFunciones: vi.fn(),
 }));
 
 vi.mock("@/lib/db/client", () => ({
@@ -20,7 +20,7 @@ vi.mock("@/lib/db/client", () => ({
       update: actualizar,
     },
     funcion: {
-      count: contar,
+      findMany: buscarFunciones,
     },
   },
 }));
@@ -39,13 +39,21 @@ const datos = {
 
 const peliculaCreada = { id: "pel_1", ...datos, imagenUrl: null, creadaEn: new Date() };
 
+/** Una funcion en curso o futura, tal como la devuelve el select de darDeBajaPelicula. */
+function funcionQueImpide(overrides: { inicio?: Date } = {}) {
+  return {
+    id: "funcion_1",
+    inicio: overrides.inicio ?? new Date(Date.now() + 60 * 60 * 1000), // en 1 hora
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   crear.mockResolvedValue(peliculaCreada);
   listar.mockResolvedValue([peliculaCreada]);
   buscar.mockResolvedValue({ ...peliculaCreada, bajaEn: null });
   actualizar.mockResolvedValue(peliculaCreada);
-  contar.mockResolvedValue(0);
+  buscarFunciones.mockResolvedValue([]);
 });
 
 type ArgsPrisma = {
@@ -57,7 +65,10 @@ type ArgsPrisma = {
 };
 
 /** El argumento con el que se llamó a un mock de Prisma, o un error si no se llamó. */
-function argumentoDe(mock: typeof crear, indice = 0): ArgsPrisma {
+function argumentoDe(
+  mock: typeof crear | typeof listar | typeof actualizar | typeof buscarFunciones,
+  indice = 0,
+): ArgsPrisma {
   const llamada = mock.mock.calls[indice];
   if (!llamada) throw new Error("se esperaba una llamada a Prisma y no hubo ninguna");
   return llamada[0] as ArgsPrisma;
@@ -127,7 +138,7 @@ describe("darDeBajaPelicula", () => {
   });
 
   it("arroja ErrorDeConflicto si tiene funciones en curso o programadas", async () => {
-    contar.mockResolvedValue(1);
+    buscarFunciones.mockResolvedValue([funcionQueImpide()]);
 
     await expect(darDeBajaPelicula("pel_1")).rejects.toBeInstanceOf(ErrorDeConflicto);
     expect(actualizar).not.toHaveBeenCalled();
@@ -136,13 +147,33 @@ describe("darDeBajaPelicula", () => {
   it("cuenta como en curso una función que arrancó hace menos que la duración de la película", async () => {
     await darDeBajaPelicula("pel_1"); // dura 120 minutos
 
-    const where = argumentoDe(contar).where as { peliculaId: string; inicio: { gte: Date } };
+    const where = argumentoDe(buscarFunciones).where as {
+      peliculaId: string;
+      inicio: { gte: Date };
+    };
     expect(where.peliculaId).toBe("pel_1");
 
     // La ventana arranca 120 minutos atrás: una función de las 2 en punto
     // todavía se está proyectando a las 3.
     const minutosDeVentana = (Date.now() - where.inicio.gte.getTime()) / 60_000;
     expect(minutosDeVentana).toBeCloseTo(120, 0);
+  });
+
+  it("no impide la baja si la función devuelta ya terminó", async () => {
+    // Empezó hace 121 minutos y la película dura 120: terminó hace 1 minuto.
+    buscarFunciones.mockResolvedValue([
+      funcionQueImpide({ inicio: new Date(Date.now() - 121 * 60 * 1000) }),
+    ]);
+
+    await expect(darDeBajaPelicula("pel_1")).resolves.toBeUndefined();
+  });
+
+  it("consulta funciones ordenadas por inicio ascendente y con límite explícito", async () => {
+    await darDeBajaPelicula("pel_1");
+
+    const llamada = argumentoDe(buscarFunciones);
+    expect(llamada.orderBy).toEqual({ inicio: "asc" });
+    expect(llamada.take).toBeGreaterThan(0);
   });
 
   it("marca bajaEn en vez de borrar la fila", async () => {

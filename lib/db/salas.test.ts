@@ -3,10 +3,10 @@ import { Prisma } from "@prisma/client";
 
 import { ErrorDeConflicto, ErrorNoEncontrado } from "@/lib/errores";
 
-const { crear, listar, contar, buscar, actualizar } = vi.hoisted(() => ({
+const { crear, listar, buscarFunciones, buscar, actualizar } = vi.hoisted(() => ({
   crear: vi.fn(),
   listar: vi.fn(),
-  contar: vi.fn(),
+  buscarFunciones: vi.fn(),
   buscar: vi.fn(),
   actualizar: vi.fn(),
 }));
@@ -20,7 +20,7 @@ vi.mock("@/lib/db/client", () => ({
       update: actualizar,
     },
     funcion: {
-      count: contar,
+      findMany: buscarFunciones,
     },
   },
 }));
@@ -36,12 +36,24 @@ const salaCreada = {
   creadaEn: new Date(),
 };
 
+/** Una funcion en curso o futura, tal como la devuelve el select con join a Pelicula. */
+function funcionQueImpide(overrides: { inicio?: Date; duracionMinutos?: number } = {}) {
+  return {
+    id: "funcion_1",
+    inicio: overrides.inicio ?? new Date(Date.now() + 60 * 60 * 1000), // en 1 hora
+    pelicula: {
+      titulo: "Una pelicula",
+      duracionMinutos: overrides.duracionMinutos ?? 90,
+    },
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   buscar.mockResolvedValue({ ...salaCreada, eliminadaEn: null });
   crear.mockResolvedValue(salaCreada);
   listar.mockResolvedValue([salaCreada]);
-  contar.mockResolvedValue(0);
+  buscarFunciones.mockResolvedValue([]);
 });
 
 type ArgsPrisma = {
@@ -56,7 +68,9 @@ type ArgsPrisma = {
 };
 
 /** El argumento con el que se llamó a un mock de Prisma, o un error si no se llamó. */
-function argumentoDe(mock: typeof crear | typeof listar | typeof actualizar): ArgsPrisma {
+function argumentoDe(
+  mock: typeof crear | typeof listar | typeof actualizar | typeof buscarFunciones,
+): ArgsPrisma {
   const llamada = mock.mock.calls[0];
   if (!llamada) throw new Error("se esperaba una llamada a Prisma y no hubo ninguna");
   return llamada[0] as ArgsPrisma;
@@ -117,8 +131,35 @@ describe("eliminarSalaLogico", () => {
   });
 
   it("arroja ErrorDeConflicto si la sala tiene funciones en curso o programadas", async () => {
-    contar.mockResolvedValue(1);
+    buscarFunciones.mockResolvedValue([funcionQueImpide()]);
     await expect(eliminarSalaLogico("1")).rejects.toBeInstanceOf(ErrorDeConflicto);
+  });
+
+  it("el mensaje de conflicto enumera la función en conflicto, con título y horario", async () => {
+    buscarFunciones.mockResolvedValue([funcionQueImpide({ inicio: new Date("2026-09-16T20:00:00.000Z") })]);
+
+    await expect(eliminarSalaLogico("1")).rejects.toMatchObject({
+      message: expect.stringContaining("Una pelicula"),
+    });
+  });
+
+  it("no la bloquea una función que ya terminó, aunque esté en la ventana de la consulta", async () => {
+    // Empezó hace 10 horas y dura 60 minutos: terminó hace rato, no debería
+    // contar como impedimento aunque el `where` la haya traído.
+    buscarFunciones.mockResolvedValue([
+      funcionQueImpide({ inicio: new Date(Date.now() - 10 * 60 * 60 * 1000), duracionMinutos: 60 }),
+    ]);
+
+    await expect(eliminarSalaLogico("1")).resolves.toBeUndefined();
+  });
+
+  it("consulta funciones ordenadas por inicio ascendente y con límite explícito", async () => {
+    await eliminarSalaLogico("1");
+
+    const llamada = argumentoDe(buscarFunciones);
+    expect(llamada.where).toMatchObject({ salaId: "1" });
+    expect(llamada.orderBy).toEqual({ inicio: "asc" });
+    expect(llamada.take).toBeGreaterThan(0);
   });
 
   it("actualiza eliminadaEn de la sala simulando borrado lógico", async () => {
