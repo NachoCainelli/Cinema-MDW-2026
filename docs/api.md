@@ -22,7 +22,7 @@ Este documento especifica el contrato de la API REST para el sistema Cinema MDW 
 |---|---|---|---|---|
 | `POST` | `/api/salas` | Crear una sala y sus butacas (H2) | ADMINISTRADOR | **400** filas o columnas <= 0<br>**401** sin sesión<br>**403** rol incorrecto<br>**409** sala con nombre duplicado |
 | `GET` | `/api/salas` | Listar salas vigentes | ADMINISTRADOR | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**401** sin sesión<br>**403** rol incorrecto |
-| `DELETE` | `/api/salas/:id` | Baja lógica de sala (H5) | ADMINISTRADOR | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe<br>**409** sala con funciones futuras |
+| `DELETE` | `/api/salas/:id` | Baja lógica de sala (H5) | ADMINISTRADOR | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe<br>**409** sala con funciones futuras o en curso |
 
 ## Películas (H6)
 
@@ -31,7 +31,7 @@ Este documento especifica el contrato de la API REST para el sistema Cinema MDW 
 | `POST` | `/api/peliculas` | Crear película | GESTOR_CARTELERA | **400** clasificación o categoría fuera de la lista, duración inválida<br>**401** sin sesión<br>**403** rol incorrecto |
 | `GET` | `/api/peliculas` | Listar películas | GESTOR_CARTELERA | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**401** sin sesión<br>**403** rol incorrecto |
 | `PATCH` | `/api/peliculas/:id` | Editar película | GESTOR_CARTELERA | **400** campo inválido o body sin ningún campo conocido<br>**401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o está fuera de cartelera |
-| `DELETE` | `/api/peliculas/:id` | Sacar de cartelera (H6) | GESTOR_CARTELERA | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o ya estaba dada de baja<br>**409** película con funciones futuras |
+| `DELETE` | `/api/peliculas/:id` | Sacar de cartelera (H6) | GESTOR_CARTELERA | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o ya estaba dada de baja<br>**409** película con funciones futuras o en curso |
 
 `DELETE` es una **baja lógica** (`bajaEn`) y responde **204** sin cuerpo. La película deja de
 aparecer en `GET /api/peliculas` y en la cartelera pública, y no admite funciones nuevas
@@ -43,6 +43,12 @@ la película queda fuera de alcance también para el `PATCH` y para otra baja, y
 El 409 de la baja cubre las funciones **futuras y las que todavía están en curso**: la gente ya
 compró entradas para verlas. `GET /api/peliculas` es el catálogo del gestor y no la vitrina del
 cine —esa es `GET /api/funciones`, pública—, por eso pide sesión.
+
+Esta regla —qué funciones impiden una baja— es una sola implementación, compartida por H5 y H6:
+`funcionesQueImpidenBaja` en `lib/bajas.ts`, sin dependencias de Prisma ni de Next. `lib/db/salas.ts`
+y `lib/db/peliculas.ts` solo consultan las funciones candidatas y delegan el veredicto. El 409 de
+las dos operaciones enumera hasta 5 funciones (título y horario) y la cantidad total, en vez de un
+mensaje genérico que no dice cuáles.
 
 ## Funciones y Cartelera (H3)
 
@@ -130,9 +136,9 @@ de "editar película" en el spec).
 | `POST /api/salas` | La cantidad de filas o de columnas es cero o negativa | 400 | "La sala necesita al menos 1 fila" (o el mensaje equivalente para columnas) | H2, criterio 3 |
 | `POST /api/salas` | Ya existe una sala con ese nombre (incluida una eliminada: el nombre queda reservado) | 409 | 'Ya existe una sala con el nombre "`<nombre>`". Si fue eliminada, su nombre queda reservado y no se puede reutilizar.' | H2, criterio 2 |
 | `DELETE /api/salas/:id` | La sala no existe | 404 | "No se encontró la sala con id `<id>`" | H5, criterio 4 |
-| `DELETE /api/salas/:id` | La sala tiene una o más funciones futuras o en curso | 409 | 'No se puede eliminar la sala "`<nombre>`" porque tiene funciones en curso o programadas.' | H5, criterio 2 |
+| `DELETE /api/salas/:id` | La sala tiene una o más funciones futuras o en curso | 409 | 'No se puede eliminar la sala "`<nombre>`" porque tiene funciones en curso o programadas: `<hasta 5 funciones, con título y horario>` (`<n>` en total).' | H5, criterio 2 |
 | `DELETE /api/peliculas/:id` | La película no existe, o ya estaba dada de baja | 404 | "No se encontró la película con id `<id>`" | H6, criterio 4 |
-| `DELETE /api/peliculas/:id` | La película tiene una o más funciones futuras o en curso | 409 | 'No se puede sacar de cartelera "`<título>`" porque tiene funciones en curso o programadas. Hay que esperar a que terminen o darlas de baja primero.' | H6, criterio 2 |
+| `DELETE /api/peliculas/:id` | La película tiene una o más funciones futuras o en curso | 409 | 'No se puede sacar de cartelera "`<título>`" porque tiene funciones en curso o programadas: `<hasta 5 funciones, con título y horario>` (`<n>` en total). Hay que esperar a que terminen o darlas de baja primero.' | H6, criterio 2 |
 | `POST /api/funciones` | La fecha/hora de la función es anterior a la actual | 400 | "La función no puede empezar en el pasado" | H3, criterio 3 |
 | `POST /api/funciones` | La sala ya tiene otra función que se superpone en horario (margen de 15 min) | 409 | 'La sala `<nombre>` ya tiene la función de "`<título>`" a las `<hora>` (`<duración>` min). Entre una función y la siguiente tienen que quedar al menos 15 minutos' | H3, criterio 2 |
 | `POST /api/funciones` | La película está dada de baja | 409 | 'La película "`<título>`" está fuera de cartelera: no admite funciones nuevas' | H3, criterio 4 |

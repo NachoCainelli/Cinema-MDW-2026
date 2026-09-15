@@ -16,6 +16,7 @@
  */
 import { Prisma } from "@prisma/client";
 
+import { detalleDeFuncionesQueImpiden, funcionesQueImpidenBaja, UN_MINUTO_EN_MS } from "@/lib/bajas";
 import { prisma } from "@/lib/db/client";
 import { ErrorDeConflicto, ErrorNoEncontrado } from "@/lib/errores";
 import type {
@@ -26,8 +27,6 @@ import type {
 
 /** Código de Prisma para "no encontré la fila que pediste actualizar". */
 const REGISTRO_NO_ENCONTRADO = "P2025";
-
-const UN_MINUTO_EN_MS = 60 * 1000;
 
 /**
  * Lo único que sale de esta capa hacia afuera. `bajaEn` no está: todo lo que
@@ -95,10 +94,10 @@ export async function actualizarPelicula(id: string, datos: ActualizarPeliculaIn
  * No se puede dar de baja si tiene funciones que todavía no terminaron: la
  * gente ya compró entradas para verla. "Todavía no terminó" no es una columna
  * —el fin de una función sale de `inicio` más la duración de la película—,
- * pero acá esa duración se conoce, así que la ventana es exacta: cualquier
- * función que arrancó hace menos de lo que dura la película sigue en curso.
- * (En `eliminarSalaLogico` no se puede afinar tanto, porque las funciones de
- * una sala son de películas distintas y hay que usar el techo de duración.)
+ * pero acá esa duración se conoce, así que la ventana ya es exacta y el
+ * filtro de la consulta (`inicio: { gte: desde }`) no es una aproximación
+ * como en `eliminarSalaLogico`: coincide exactamente con la regla de
+ * `funcionesQueImpidenBaja`, en lib/bajas.ts.
  */
 export async function darDeBajaPelicula(id: string) {
   const pelicula = await prisma.pelicula.findUnique({
@@ -111,14 +110,25 @@ export async function darDeBajaPelicula(id: string) {
   }
 
   const desde = new Date(Date.now() - pelicula.duracionMinutos * UN_MINUTO_EN_MS);
-  const funcionesEnCursoOFuturas = await prisma.funcion.count({
+  const candidatas = await prisma.funcion.findMany({
     where: { peliculaId: id, inicio: { gte: desde } },
+    select: { id: true, inicio: true },
   });
 
-  if (funcionesEnCursoOFuturas > 0) {
+  const funciones = candidatas.map((funcion) => ({
+    id: funcion.id,
+    titulo: pelicula.titulo,
+    inicio: funcion.inicio,
+    duracionMinutos: pelicula.duracionMinutos,
+  }));
+
+  const funcionesQueImpiden = funcionesQueImpidenBaja(funciones, new Date());
+
+  if (funcionesQueImpiden.length > 0) {
     throw new ErrorDeConflicto(
       `No se puede sacar de cartelera "${pelicula.titulo}" porque tiene funciones en curso o ` +
-        `programadas. Hay que esperar a que terminen o darlas de baja primero.`,
+        `programadas: ${detalleDeFuncionesQueImpiden(funcionesQueImpiden)}. Hay que esperar a ` +
+        `que terminen o darlas de baja primero.`,
     );
   }
 
@@ -127,4 +137,3 @@ export async function darDeBajaPelicula(id: string) {
     data: { bajaEn: new Date() },
   });
 }
-

@@ -17,6 +17,7 @@
  */
 import { Prisma } from "@prisma/client";
 
+import { detalleDeFuncionesQueImpiden, funcionesQueImpidenBaja, UN_MINUTO_EN_MS } from "@/lib/bajas";
 import { prisma } from "@/lib/db/client";
 import { ErrorDeConflicto, ErrorNoEncontrado } from "@/lib/errores";
 import { DURACION_MAXIMA_MINUTOS } from "@/lib/schemas/pelicula";
@@ -33,8 +34,6 @@ const camposPublicos = {
 
 /** Código de Prisma para "violaste una restricción de unicidad". */
 const VIOLACION_DE_UNICIDAD = "P2002";
-
-const UN_MINUTO_EN_MS = 60 * 1000;
 
 export async function crearSala(datos: CrearSalaInput) {
   const butacasACrear = [];
@@ -93,26 +92,39 @@ export async function eliminarSalaLogico(id: string) {
     throw new ErrorNoEncontrado(`No se encontró la sala con id ${id}`);
   }
 
-  // Una sala está ocupada si tiene una función que todavía no terminó, no solo
-  // si tiene una que todavía no empezó: una que arrancó hace media hora sigue
-  // en curso. El fin de una función no es una columna (sale de `inicio` más la
-  // duración de su película), así que se acota por `inicio` y se cuenta de
-  // más: cualquier función arrancada hace menos que la película más larga
-  // posible podría seguir proyectándose. Sobra-cuenta salas cuya última
-  // función ya terminó, pero para un borrado de admin conviene errar por el
-  // lado conservador. Misma idea que `funcionesQuePuedenSolapar` en
-  // lib/db/funciones.ts.
+  // Las funciones de una sala pueden ser de películas distintas, cada una con
+  // su propia duración, así que acá no se puede saber de antemano hasta
+  // cuándo hay que traer funciones. Por eso la consulta a la base sigue
+  // usando el techo de duración máxima como filtro de performance: cualquier
+  // función que arrancó hace más que la película más larga posible ya
+  // terminó seguro, y no hace falta traerla. Es una sobre-aproximación
+  // segura (un superconjunto de las que realmente importan), no la regla
+  // final. La regla exacta —por la duración real de cada película— la aplica
+  // después `funcionesQueImpidenBaja`, la misma que usa `darDeBajaPelicula`
+  // en lib/db/peliculas.ts.
   const desde = new Date(Date.now() - DURACION_MAXIMA_MINUTOS * UN_MINUTO_EN_MS);
-  const funcionesEnCursoOFuturas = await prisma.funcion.count({
-    where: {
-      salaId: id,
-      inicio: { gte: desde },
+  const candidatas = await prisma.funcion.findMany({
+    where: { salaId: id, inicio: { gte: desde } },
+    select: {
+      id: true,
+      inicio: true,
+      pelicula: { select: { titulo: true, duracionMinutos: true } },
     },
   });
 
-  if (funcionesEnCursoOFuturas > 0) {
+  const funciones = candidatas.map((funcion) => ({
+    id: funcion.id,
+    titulo: funcion.pelicula.titulo,
+    inicio: funcion.inicio,
+    duracionMinutos: funcion.pelicula.duracionMinutos,
+  }));
+
+  const funcionesQueImpiden = funcionesQueImpidenBaja(funciones, new Date());
+
+  if (funcionesQueImpiden.length > 0) {
     throw new ErrorDeConflicto(
-      `No se puede eliminar la sala "${sala.nombre}" porque tiene funciones en curso o programadas.`,
+      `No se puede eliminar la sala "${sala.nombre}" porque tiene funciones en curso o ` +
+        `programadas: ${detalleDeFuncionesQueImpiden(funcionesQueImpiden)}.`,
     );
   }
 
