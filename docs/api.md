@@ -75,3 +75,84 @@ El pago es simulado (`lib/pagos.ts`): resuelve al instante, así que no existe e
 El `usuarioId` sale siempre de la sesión: el del body y el de la query string se ignoran. Por eso
 `GET /api/compras` devuelve solo las compras propias y no hace falta un 404 por compra ajena. El
 historial muestra las funciones pasadas aunque la sala esté eliminada o la película dada de baja.
+
+---
+
+## Los errores, en detalle
+
+Todo error de la API devuelve el mismo cuerpo, sin importar el endpoint:
+
+```json
+{ "error": "<mensaje para la persona>", "detalles": [{ "campo": "...", "mensaje": "..." }] }
+```
+
+Son dos audiencias distintas en el mismo cuerpo. `error` es el mensaje pensado para mostrarse tal
+cual a quien usa la aplicación. `detalles` solo aparece en los 400 de validación de Zod: es el dato
+que un cliente puede usar para marcar el campo con error en un formulario — cada entrada trae el
+`campo` (la ruta dentro del body, p. ej. `"filas"`) y el `mensaje` puntual de esa regla.
+
+Un **500** nunca devuelve el `message` real del error: el detalle queda en el log del servidor
+(`console.error` en `respuestaDeError`, `lib/api/respuestas.ts`) y quien llama solo recibe "Error
+interno del servidor". Es a propósito — el mensaje de una excepción no controlada puede filtrar
+detalles internos (una ruta de archivo, una versión de librería, un stack trace) que no le sirven a
+un cliente y sí le sirven a quien esté mirando la respuesta con otra intención.
+
+### Errores transversales
+
+Los siguientes status se repiten en varios endpoints con el mismo mecanismo. No se repiten fila por
+fila en el catálogo de abajo; el catálogo solo lista lo que cada operación agrega de propio.
+
+| Situación | Status | Mensaje al usuario | Nota |
+|---|---|---|---|
+| El body o la query no pasan algún schema de Zod (campo faltante, fuera de rango, formato inválido, etc.) | 400 | "Los datos enviados no son válidos" | Viene con `detalles`, un `{ campo, mensaje }` por cada regla de Zod que falló. Es el único caso con `detalles` en el cuerpo. |
+| El body no es JSON válido (vacío o mal formado) | 400 | "El cuerpo del request no es JSON válido" | `request.json()` lanza `SyntaxError` antes de llegar al schema; es un error de quien llama, no un 500. |
+| No hay sesión iniciada en una ruta que la requiere | 401 | "Necesitás iniciar sesión" | `requerirUsuario()`, `lib/auth.ts`. |
+| Hay sesión, pero el rol no es el que la ruta exige | 403 | "No tenés permiso para hacer esto" | `requerirUsuario(rol)`, mismo origen que el 401. |
+| El recurso de `:id` no existe, o existe pero no pertenece a quien pregunta | 404 | Mensaje propio de cada entidad (p. ej. "No se encontró la sala con id `<id>`") | Un recurso ajeno responde exactamente lo mismo que uno inexistente — nunca 403 — para que no se puedan confirmar ids probando de a uno (ver "Reglas generales de error" al principio de este documento). |
+| El pago simulado no se aprueba (`POST /api/compras`) | 402 | El motivo que devuelve `lib/pagos.ts`, p. ej. "El pago fue rechazado por la entidad emisora" | Es 402 y no 409: no hay nada en la base que reintentar cambie — con otro medio de pago la misma compra sale bien. Solo lo dispara este endpoint, pero comparte el mecanismo de esta tabla: mensaje fijo, sin `detalles`. |
+| Cualquier error no contemplado por las clases de `lib/errores.ts` | 500 | "Error interno del servidor" | El error real se loguea en el servidor y nunca sale en la respuesta. |
+
+### Catálogo por operación
+
+Los errores de negocio: los que dependen del estado de la base y están atados a un criterio de
+aceptación puntual de `docs/spec.md`. Cada mensaje sale tal cual del código — de las clases de
+`lib/errores.ts` y de los `throw` de `lib/db/` —, no se resume ni se inventa.
+
+Quedan afuera de esta tabla los endpoints cuyos errores son enteramente transversales: los `GET` de
+listados y de la cartelera (solo el 400 de `limite`), `GET /api/funciones/:id/butacas` (solo el 404
+genérico) y `PATCH /api/peliculas/:id` (400 de Zod y 404 genérico — no hay una historia de usuario
+de "editar película" en el spec).
+
+| Operación | Situación | Status | Mensaje al usuario | Criterio (spec) |
+|---|---|---|---|---|
+| `POST /api/usuarios` | La contraseña tiene menos de 8 caracteres | 400 | "La contraseña necesita al menos 8 caracteres" | H1, criterio 3 |
+| `POST /api/usuarios` | Ya existe una cuenta con ese email | 409 | "Ya existe una cuenta registrada con ese email" | H1, criterio 2 |
+| `POST /api/salas` | La cantidad de filas o de columnas es cero o negativa | 400 | "La sala necesita al menos 1 fila" (o el mensaje equivalente para columnas) | H2, criterio 3 |
+| `POST /api/salas` | Ya existe una sala con ese nombre (incluida una eliminada: el nombre queda reservado) | 409 | 'Ya existe una sala con el nombre "`<nombre>`". Si fue eliminada, su nombre queda reservado y no se puede reutilizar.' | H2, criterio 2 |
+| `DELETE /api/salas/:id` | La sala no existe | 404 | "No se encontró la sala con id `<id>`" | H5, criterio 4 |
+| `DELETE /api/salas/:id` | La sala tiene una o más funciones futuras o en curso | 409 | 'No se puede eliminar la sala "`<nombre>`" porque tiene funciones en curso o programadas.' | H5, criterio 2 |
+| `DELETE /api/peliculas/:id` | La película no existe, o ya estaba dada de baja | 404 | "No se encontró la película con id `<id>`" | H6, criterio 4 |
+| `DELETE /api/peliculas/:id` | La película tiene una o más funciones futuras o en curso | 409 | 'No se puede sacar de cartelera "`<título>`" porque tiene funciones en curso o programadas. Hay que esperar a que terminen o darlas de baja primero.' | H6, criterio 2 |
+| `POST /api/funciones` | La fecha/hora de la función es anterior a la actual | 400 | "La función no puede empezar en el pasado" | H3, criterio 3 |
+| `POST /api/funciones` | La sala ya tiene otra función que se superpone en horario (margen de 15 min) | 409 | 'La sala `<nombre>` ya tiene la función de "`<título>`" a las `<hora>` (`<duración>` min). Entre una función y la siguiente tienen que quedar al menos 15 minutos' | H3, criterio 2 |
+| `POST /api/funciones` | La película está dada de baja | 409 | 'La película "`<título>`" está fuera de cartelera: no admite funciones nuevas' | H3, criterio 4 |
+| `POST /api/funciones` | La sala está eliminada | 409 | 'La sala `<nombre>` está eliminada: no admite funciones nuevas' | H5, criterio 1* |
+| `POST /api/compras` | No se seleccionó ninguna butaca | 400 | "Tenés que seleccionar al menos una butaca" | H4, criterio 4 |
+| `POST /api/compras` | El pago simulado es rechazado | 402 | El motivo de `lib/pagos.ts` (p. ej. "El pago fue rechazado por la entidad emisora") | H4, criterio 3 |
+| `POST /api/compras` | Una o más butacas ya fueron vendidas para esa función (chequeo previo, o carrera resuelta por el índice único) | 409 | "Una de las butacas que elegiste ya fue vendida para esta función. No se te cobró nada" (o la variante en plural, "`<n>` de las butacas...") | H4, criterio 2 |
+
+\* H3 no tiene un criterio propio para este caso; se cita H5 porque es ahí donde el spec lo dice
+explícitamente: una sala eliminada "no aparece para programar funciones nuevas" (H5, criterio 1) y
+"no admite funciones nuevas" (spec, sección 6).
+
+**Errores reales del código sin criterio de aceptación en `docs/spec.md`** — se documentan acá
+porque existen y se pueden probar, pero no entran en la tabla de arriba porque no hay una fila de
+`docs/spec.md` que citar sin inventarla:
+
+- `POST /api/compras` responde **409** ("Alguna de las butacas elegidas no pertenece a la sala de
+  esta función") si alguna butaca del pedido no es de la sala de la función. Protege la relación
+  Butaca–Sala (spec, sección 3), pero ningún criterio de H4 lo pide explícitamente.
+- `POST /api/compras` responde **409** ('La función de "`<título>`" ya empezó: no se pueden comprar
+  entradas') si la función ya arrancó. Ni H4 ni la sección 6 de reglas de negocio lo mencionan hoy.
+
+Se abre una issue aparte para sumar estos dos casos como criterios de H4 en `docs/spec.md`.
