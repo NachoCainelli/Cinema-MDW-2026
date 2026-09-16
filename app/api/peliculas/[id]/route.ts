@@ -14,10 +14,10 @@ import { actualizarPeliculaSchema, peliculaIdSchema } from "@/lib/schemas/pelicu
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const { id } = await params;
     const peliculaId = peliculaIdSchema.parse(id); // 400
     const datos = actualizarPeliculaSchema.parse(await request.json()); // 400
+    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const pelicula = await actualizarPelicula(peliculaId, datos); // 404
     return NextResponse.json(pelicula);
   } catch (error) {
@@ -34,9 +34,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
  */
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const { id } = await params;
     const peliculaId = peliculaIdSchema.parse(id); // 400
+    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     await darDeBajaPelicula(peliculaId); // 404 / 409
     return new NextResponse(null, { status: 204 });
   } catch (error) {

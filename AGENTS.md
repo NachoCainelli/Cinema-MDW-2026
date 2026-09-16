@@ -38,6 +38,7 @@ Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca 
 | Un componente reutilizable | `components/` |
 | Una consulta a la base | `lib/db/<entidad>.ts` |
 | Un schema de validación | `lib/schemas/<entidad>.ts` |
+| Una regla de negocio pura | `lib/<dominio>.ts`, sin `import` de Prisma ni de Next |
 | Un error de negocio | `lib/errores.ts` |
 | Algo compartido por todos los endpoints | `lib/api/<tema>.ts` |
 | Un helper sin dependencias | `lib/utils.ts` |
@@ -51,6 +52,7 @@ Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca 
 - Las funciones de `lib/db/` **no conocen `Request` ni `Response`**: reciben datos ya validados y, si hace falta saber quién pregunta, el `usuarioId` por parámetro. Nada de headers, cookies ni status codes ahí adentro.
 - Toda consulta lleva `select` explícito. Sin `select`, un `findUnique` de Usuario devuelve también el `passwordHash`.
 - Las reglas que dependen del estado de la base (butaca vendida, función superpuesta, email repetido) se validan en `lib/db/` —no en Zod, que no ve la base— y se comunican lanzando un error de `lib/errores.ts`.
+- `lib/db/` sigue siendo el único que consulta la base: lee los datos, se los pasa a la regla pura de `lib/<dominio>.ts` y traduce su veredicto a un error de `lib/errores.ts`. La regla pura devuelve un veredicto (un array vacío, un booleano), no lanza.
 
 ### Capa API
 - **Un Route Handler hace cuatro cosas y en este orden: validar → autorizar → delegar → responder.** La lógica vive en `lib/db/`; el handler traduce HTTP.
@@ -65,8 +67,8 @@ Plantilla de endpoint:
 // app/api/salas/route.ts
 export async function POST(request: Request) {
   try {
-    const usuario = await requerirUsuario("ADMINISTRADOR"); // 401 / 403
     const datos = crearSalaSchema.parse(await request.json()); // 400
+    const usuario = await requerirUsuario("ADMINISTRADOR"); // 401 / 403
     const sala = await crearSala(datos, usuario.id); // 404 / 409
     return NextResponse.json(sala, { status: 201 });
   } catch (error) {
