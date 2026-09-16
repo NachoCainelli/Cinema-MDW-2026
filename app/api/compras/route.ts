@@ -16,8 +16,8 @@ import { crearCompraSchema, historialQuerySchema } from "@/lib/schemas/compra";
  */
 export async function POST(request: Request) {
   try {
-    const usuario = await requerirUsuario("USUARIO"); // 401 / 403
     const datos = crearCompraSchema.parse(await request.json()); // 400
+    const usuario = await requerirUsuario("USUARIO"); // 401 / 403
     const compra = await crearCompra(datos, usuario.id); // 402 / 404 / 409
     return NextResponse.json(compra, { status: 201 });
   } catch (error) {
@@ -34,9 +34,9 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
-    const usuario = await requerirUsuario("USUARIO"); // 401 / 403
     const { searchParams } = new URL(request.url);
     const query = historialQuerySchema.parse(Object.fromEntries(searchParams)); // 400
+    const usuario = await requerirUsuario("USUARIO"); // 401 / 403
     const compras = await listarComprasDeUsuario(usuario.id, query);
     return NextResponse.json(compras);
   } catch (error) {

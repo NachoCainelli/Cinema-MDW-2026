@@ -26,10 +26,15 @@
 # de ahí el id y el rol. Son los usuarios que crea `pnpm db:seed`.
 #
 # En producción el stub está apagado, así que todo lo que manda
-# `x-usuario-prueba` responde 401 aunque el título diga otra cosa. Contra
-# Vercel se verifican los endpoints públicos y los 401 (los bloques "sin
-# sesión" no dependen de ids encadenados, para que corran igual allá); el resto
-# es verificable en clase 6, con Auth.js.
+# `x-usuario-prueba` responde 401 aunque el título diga otra cosa, con una
+# excepción: los bloques que esperan 400 siguen dando 400, porque la validación
+# va antes que la autorización. Contra Vercel se verifican los endpoints
+# públicos, los 401 (los bloques "sin sesión" no dependen de ids encadenados,
+# para que corran igual allá) y los 400 que tampoco necesitan un id del flujo;
+# el resto es verificable en clase 6, con Auth.js.
+#
+# TODO (clase 6): con Auth.js el stub se borra y estos requests pasan a usar
+# la sesión real.
 @admin = admin@ejemplo.com
 @gestor = gestor@ejemplo.com
 @usuario = usuario@ejemplo.com
@@ -167,8 +172,9 @@ GET {{baseUrl}}/api/funciones/{{funcionPorEmpezar.response.body.$.id}}/butacas
 # ═════════════════════════════════════════════════════════════════════════════
 
 ### Transversal · Body que no es JSON válido → 400 "El cuerpo del request no es JSON válido", sin `detalles`
-# Contra un endpoint público, para que corra igual en producción: en uno con
-# sesión, la autorización va primero y respondería 401 antes de leer el body.
+# Contra un endpoint público, para que corra igual en producción. En uno con
+# sesión la respuesta es la misma: la validación va antes que la autorización,
+# así que el body mal formado también corta con 400 y no con 401.
 POST {{baseUrl}}/api/usuarios
 Content-Type: application/json
 
