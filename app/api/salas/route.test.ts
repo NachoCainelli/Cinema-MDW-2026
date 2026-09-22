@@ -73,6 +73,15 @@ describe("POST /api/salas", () => {
     expect(crear).not.toHaveBeenCalled();
   });
 
+  it("responde 401 sin sesión aunque el body también sea inválido: la sesión se revisa primero", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await POST(postRequest({ ...bodyValido, filas: 0 }));
+
+    expect(respuesta.status).toBe(401);
+    expect(crear).not.toHaveBeenCalled();
+  });
+
   it("responde 400 si las filas son cero o negativas", async () => {
     const respuesta = await POST(postRequest({ ...bodyValido, filas: 0 }));
 
@@ -144,6 +153,15 @@ describe("GET /api/salas", () => {
     const respuesta = await GET(getRequest());
 
     expect(respuesta.status).toBe(403);
+    expect(listar).not.toHaveBeenCalled();
+  });
+
+  it("responde 401 sin sesión aunque el límite también sea inválido: la sesión se revisa primero", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await GET(getRequest("?limite=999"));
+
+    expect(respuesta.status).toBe(401);
     expect(listar).not.toHaveBeenCalled();
   });
 });

@@ -91,6 +91,24 @@ describe("PATCH /api/peliculas/:id", () => {
     expect(actualizar).not.toHaveBeenCalled();
   });
 
+  it("responde 401 sin sesión aunque el body también sea inválido: la sesión se revisa primero", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await PATCH(patchRequest({ clasificacion: "R" }), contexto());
+
+    expect(respuesta.status).toBe(401);
+    expect(actualizar).not.toHaveBeenCalled();
+  });
+
+  it("responde 401 sin sesión aunque el id de la ruta también sea inválido", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await PATCH(patchRequest({ titulo: "x" }), contexto(""));
+
+    expect(respuesta.status).toBe(401);
+    expect(actualizar).not.toHaveBeenCalled();
+  });
+
   it("responde 404 si la película no existe o está fuera de cartelera", async () => {
     actualizar.mockRejectedValue(new ErrorNoEncontrado("No se encontró la película con id pel_1"));
 
@@ -144,6 +162,15 @@ describe("DELETE /api/peliculas/:id", () => {
     const respuesta = await DELETE(deleteRequest(), contexto());
 
     expect(respuesta.status).toBe(403);
+    expect(darDeBaja).not.toHaveBeenCalled();
+  });
+
+  it("responde 401 sin sesión aunque el id de la ruta también sea inválido", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await DELETE(deleteRequest(), contexto(""));
+
+    expect(respuesta.status).toBe(401);
     expect(darDeBaja).not.toHaveBeenCalled();
   });
 
