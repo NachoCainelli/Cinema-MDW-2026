@@ -20,7 +20,8 @@ otro problema (datos válidos, recurso existente), ¿qué devuelve el sistema ho
 - `401` — sin sesión. `Público` en esta matriz significa "sin sesión iniciada", no un rol de
   `Rol` en el schema.
 - `403` — hay sesión, pero el rol no es el que exige la ruta.
-- `404` — no aplica a ninguna fila de este contrato hoy (ver nota al pie de la matriz).
+- `404` — solo aparece en `GET /api/compras/:id`, la única fila donde el resultado depende de
+  *quién* pregunta y no solo de su rol (ver nota al pie de la matriz).
 
 La fuente de este comportamiento es una sola función, `requerirUsuario(rol?)` en `lib/auth.ts`:
 
@@ -62,15 +63,18 @@ Dos cosas de esta función definen toda la matriz:
 | `GET /api/funciones/:id/butacas` | ✅ | ✅ | ✅ | ✅ |
 | `POST /api/compras` (H4) | 401 | ✅ | 403 | 403 |
 | `GET /api/compras` (historial propio) | 401 | ✅ | 403 | 403 |
+| `GET /api/compras/:id` (una compra propia) | 401 | ✅ (404 si es ajena) | 403 | 403 |
 
-13 filas, una por endpoint del contrato de `docs/api.md`; ninguna operación inventada.
+14 filas, una por endpoint del contrato de `docs/api.md`; ninguna operación inventada.
 
-**Nota sobre la columna 404:** no aparece en ninguna celda porque en este contrato el 404 nunca
-depende del rol, depende de si el recurso existe — y una vez que el rol correcto pasa la
-autorización, el 404 es el mismo para cualquier sesión válida de ese rol. La única situación
-donde el 404 sí depende de *quién* pregunta (recurso ajeno) es `GET /api/compras`, y ahí no hay
-un `:id` de por medio: el filtro por dueño lo hace la query (`usuarioId` sale de la sesión), no
-un chequeo de pertenencia sobre un recurso puntual. Ver la respuesta 2 para el detalle.
+**Nota sobre el 404:** en casi todo el contrato el 404 no depende de quién pregunta, sino de si el
+recurso existe: una vez que el rol correcto pasa la autorización, el 404 es el mismo para
+cualquier sesión válida de ese rol. La excepción es `GET /api/compras/:id`: un `USUARIO` pasa la
+autorización, pero si la compra es de otro usuario recibe **404**, con el mismo cuerpo que una
+compra que no existe. No es un chequeo de pertenencia posterior a la lectura: la consulta
+(`obtenerCompraDeUsuario`, `lib/db/compras.ts`) lleva el `id` y el `usuarioId` de la sesión en el
+mismo `where`, así que la compra ajena no existe para esa llamada. `GET /api/compras`, en cambio,
+no tiene un `:id`: devuelve la lista ya filtrada por dueño. Ver la respuesta 2 para el detalle.
 
 **Diferencias entre esta matriz y `lib/auth.ts`:** ninguna. Cada fila protegida corresponde a un
 `requerirUsuario(ROL)` con un único rol literal en el handler de esa ruta, y ninguna ruta de
@@ -123,8 +127,13 @@ el recurso existe (solo que no es tuyo). Alguien podría iterar ids —`/api/alg
 ningún permiso sobre ninguno. Respondiendo siempre 404 para "no existe" y para "no es tuyo", esa
 distinción queda indistinguible desde afuera: no hay señal que explotar id por id.
 
-**Aclaración importante después de armar la matriz:** hoy **ningún endpoint del contrato
-ejercita en la práctica esta regla del recurso ajeno**. Los recursos con `:id` de este contrato
+**Actualización (#43):** `GET /api/compras/:id` es hoy el endpoint que ejercita esta regla: una
+compra de otro usuario responde 404, igual que una que no existe, y tiene su test en
+`app/api/compras/[id]/route.test.ts`. Lo que sigue es la aclaración original, escrita antes de
+que existiera esa ruta.
+
+**Aclaración importante después de armar la matriz:** hasta #43, **ningún endpoint del contrato
+ejercitaba en la práctica esta regla del recurso ajeno**. Los recursos con `:id` de este contrato
 (`Sala`, `Película`, `Función`) son entidades globales que administra un rol fijo, no recursos
 por-usuario — no existe el concepto de "una sala ajena". El único recurso que sí es por-usuario
 es la Compra, pero `GET /api/compras` no tiene un `:id`: devuelve la lista ya filtrada por

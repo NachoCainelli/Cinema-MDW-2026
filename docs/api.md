@@ -84,6 +84,7 @@ gestor no lo publica acá automáticamente.
 |---|---|---|---|---|
 | `POST` | `/api/compras` | Comprar entradas (H4) | USUARIO | **400** sin butacas seleccionadas<br>**401** sin sesión<br>**402** pago rechazado (la compra no se persiste)<br>**403** rol incorrecto<br>**404** función inexistente<br>**409** butaca ya vendida para esa función<br>**409** butaca que no pertenece a la sala de esa función<br>**409** función ya empezada |
 | `GET` | `/api/compras` | Historial de compras | USUARIO | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**401** sin sesión<br>**403** rol incorrecto |
+| `GET` | `/api/compras/:id` | Ver una compra propia, con sus entradas | USUARIO | **401** sin sesión<br>**403** rol incorrecto<br>**404** la compra no existe o es de otro usuario |
 
 La compra es la operación del flujo principal, por eso tiene ruta propia con sustantivo y no es el
 alta de un CRUD. No hay reserva temporal: la disponibilidad se valida recién al confirmar, y la
@@ -99,6 +100,13 @@ El `usuarioId` sale siempre de la sesión: el del body y el de la query string s
 historial muestra las funciones pasadas aunque la sala esté eliminada o la película dada de baja.
 `listarComprasDeUsuario` filtra por `usuarioId` en el `where` de la consulta, no con un chequeo
 aparte sobre el resultado (ver `AGENTS.md`, sección "Datos").
+
+`GET /api/compras/:id` sí recibe un id de afuera, y ahí aparece el 404 por compra ajena. La consulta
+(`obtenerCompraDeUsuario`, `lib/db/compras.ts`) lleva el id y el `usuarioId` de la sesión **juntos
+en el mismo `where`**: la compra de otro no se lee y se rechaza después, directamente no existe para
+esa llamada, y el dato ajeno nunca sale de la base. Por eso la compra inexistente y la ajena
+responden exactamente lo mismo —404 con el mismo cuerpo—: si la ajena respondiera 403, se podría
+averiguar qué ids de compra existen probando de a uno. Devuelve los mismos campos que el historial.
 
 ---
 
@@ -166,6 +174,7 @@ de "editar película" en el spec).
 | `POST /api/compras` | No se seleccionó ninguna butaca | 400 | "Tenés que seleccionar al menos una butaca" | H4, criterio 4 |
 | `POST /api/compras` | El pago simulado es rechazado | 402 | El motivo de `lib/pagos.ts` (p. ej. "El pago fue rechazado por la entidad emisora") | H4, criterio 3 |
 | `POST /api/compras` | Una o más butacas ya fueron vendidas para esa función (chequeo previo, o carrera resuelta por el índice único) | 409 | "Una de las butacas que elegiste ya fue vendida para esta función. No se te cobró nada" (o la variante en plural, "`<n>` de las butacas...") | H4, criterio 2 |
+| `GET /api/compras/:id` | La compra no existe, o existe pero es de otro usuario (las dos responden igual) | 404 | "No se encontró la compra con id `<id>`" | Spec, sección 6: "Un usuario solo puede ver sus propias compras" |
 
 \* H3 no tiene un criterio propio para este caso; se cita H5 porque es ahí donde el spec lo dice
 explícitamente: una sala eliminada "no aparece para programar funciones nuevas" (H5, criterio 1) y

@@ -190,3 +190,22 @@ export async function listarComprasDeUsuario(usuarioId: string, { limite }: Hist
     take: limite,
   });
 }
+
+/**
+ * Detalle de una compra del usuario de la sesión (H4, spec sección 6: "un
+ * usuario solo puede ver sus propias compras").
+ *
+ * El id y el dueño van juntos en el mismo `where`, siempre. No es que la
+ * compra ajena se rechace después de leerla: para esta llamada no existe, y el
+ * dato de otra persona nunca sale de la base. Por eso la compra inexistente y
+ * la ajena lanzan el mismo 404, con el mismo mensaje: quien llama no tiene
+ * forma de distinguirlas.
+ */
+export async function obtenerCompraDeUsuario(id: string, usuarioId: string) {
+  const compra = await prisma.compra.findFirst({
+    where: { id, usuarioId },
+    select: camposDeCompra,
+  });
+  if (!compra) throw new ErrorNoEncontrado(`No se encontró la compra con id ${id}`);
+  return compra;
+}
