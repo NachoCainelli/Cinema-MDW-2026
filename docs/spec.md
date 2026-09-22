@@ -32,6 +32,10 @@ Todo comprador necesita cuenta. Un Usuario se registra por su cuenta (autoservic
 de administrador y gestor de cartelera las crea siempre un administrador — nadie se autoregistra
 con esos dos roles. No hay compra como invitado.
 
+Un Usuario puede entrar de dos maneras: con email y contraseña (H1) o con su cuenta de Google. El
+primer login con Google crea la cuenta con rol `USUARIO`, igual que el registro. Ninguno de los
+dos caminos permite elegir el rol (ADR 0003).
+
 ## 3. Entidades
 
 Los sustantivos que aparecen en las historias de usuario. De acá sale el modelo de datos.
@@ -281,6 +285,10 @@ Lo que decidimos **no** hacer, para no volver a discutirlo en la clase 12.
 - **Tipos de butaca diferenciados** (VIP, discapacidad) **y precios variables por función.** Todas
   las butacas son iguales y el precio es único para todo el cine.
 - **Una persona con más de un rol a la vez.**
+- **Gestión de cuentas más allá del registro y el login:** recuperación de contraseña,
+  verificación de mail, segundo factor, permisos granulares, refresh tokens y pantalla de
+  administración de usuarios. Las cuentas de administrador y de gestor de cartelera se crean por
+  seed o desde Prisma Studio (ADR 0003).
 - **Editar o eliminar una función ya publicada.** Una vez creada, una función no se modifica ni se
   borra en este alcance — si hay un error, se resuelve fuera del sistema.
 - **Reserva temporal de butacas** mientras el usuario está eligiendo o pagando. La disponibilidad

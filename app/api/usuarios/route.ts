@@ -11,8 +11,8 @@ import { registrarUsuarioSchema } from "@/lib/schemas/usuario";
  * Es la única ruta de escritura sin sesión del sistema: el paso de autorizar
  * no existe acá a propósito, porque quien se registra todavía no tiene cuenta.
  *
- * TODO (clase 6): iniciar sesión automáticamente después del registro. El
- * criterio de aceptación de H1 lo pide, pero la sesión real llega con Auth.js.
+ * Después de crear la cuenta inicia la sesión con Credentials, como pide el
+ * criterio de aceptación de H1.
  */
 export async function POST(request: Request) {
   try {
