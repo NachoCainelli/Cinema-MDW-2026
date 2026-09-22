@@ -38,8 +38,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
  *
  * Es una baja lógica: la película deja de listarse y de admitir funciones
  * nuevas, pero sus funciones pasadas y el historial de ventas quedan intactos.
- * Responde 204 sin cuerpo, igual que la baja de sala. Mismo razonamiento que
- * el PATCH sobre por qué el 404 no se adelanta al 400 del id.
+ * Responde 204 sin cuerpo, igual que la baja de sala.
+ *
+ * A diferencia del PATCH, acá no hay body que validar —solo el id de la
+ * ruta—, así que no hay ninguna tensión entre 400 y 404 que resolver: el id
+ * se valida antes de delegar, y `darDeBajaPelicula` (`lib/db/peliculas.ts`)
+ * resuelve el 404 con su propio `findUnique` antes de escribir, no con una
+ * sola escritura condicionada como `actualizarPelicula`.
  */
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

@@ -12,8 +12,12 @@ En una ruta protegida, estas verificaciones corren en este orden: sesión (401) 
 validación del body/query (400) → regla de negocio (404/409). La autorización va antes que la
 validación de datos —no depende de ellos—, así que una request sin sesión o con el rol equivocado
 corta ahí, sin importar si el body que mandó era válido o no (ver `AGENTS.md`, sección "Capa API",
-para el razonamiento completo y la única excepción: el 404 de una baja lógica, que sigue saliendo
-después del 400 porque "existe" y "aplicar el cambio" son una sola escritura a la base).
+para el razonamiento completo). La única excepción real es `PATCH /api/peliculas/:id`: ahí "existe
+y está en cartelera" y "aplicar el cambio" son una sola escritura a la base, así que su 404 sigue
+saliendo después del 400 del body. Los `DELETE` de baja lógica (`/api/salas/:id`,
+`/api/peliculas/:id`) no tienen esa excepción —ni falta que hace—: no tienen body que validar, así
+que su 404 no compite con ningún 400, solo con el 400 del id de la ruta, que se valida antes de
+delegar a `lib/db/`.
 
 ---
 
