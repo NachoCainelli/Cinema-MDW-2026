@@ -3,11 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorDeConflicto } from "@/lib/errores";
 
 vi.mock("@/lib/db/usuarios", () => ({ registrarUsuario: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ signIn: vi.fn() }));
 
 const { registrarUsuario } = await import("@/lib/db/usuarios");
+const { signIn } = await import("@/lib/auth");
 const { POST } = await import("./route");
 
 const registrar = vi.mocked(registrarUsuario);
+const iniciarSesion = vi.mocked(signIn);
 
 const usuarioCreado = {
   id: "usr_1",
@@ -36,6 +39,24 @@ describe("POST /api/usuarios", () => {
 
     expect(respuesta.status).toBe(201);
     await expect(respuesta.json()).resolves.toEqual(usuarioCreado);
+  });
+
+  it("deja la sesión iniciada con las credenciales recién registradas (H1)", async () => {
+    await POST(request({ email: "Persona@Mail.com", nombre: "Ana", password: "unaClaveLarga" }));
+
+    expect(iniciarSesion).toHaveBeenCalledWith("credentials", {
+      email: "persona@mail.com",
+      password: "unaClaveLarga",
+      redirect: false,
+    });
+  });
+
+  it("no inicia sesión si el registro falla", async () => {
+    registrar.mockRejectedValue(new ErrorDeConflicto("Ya existe una cuenta registrada con ese email"));
+
+    await POST(request({ email: "persona@mail.com", nombre: "Ana", password: "unaClaveLarga" }));
+
+    expect(iniciarSesion).not.toHaveBeenCalled();
   });
 
   it("nunca devuelve la contraseña ni su hash", async () => {

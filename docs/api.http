@@ -13,31 +13,39 @@
 # llevan `{{$timestamp}}` para que la tanda se pueda repetir sin chocar con la
 # corrida anterior.
 #
-# En local: `pnpm db:seed` (crea los usuarios de abajo) y `pnpm dev` con
-# AUTH_STUB_HABILITADO="true" en `.env.local`.
+# En local: `pnpm db:seed` (crea los usuarios de abajo) y `pnpm dev`.
 
 # ── Entorno ──────────────────────────────────────────────────────────────────
-# Para correr la misma tanda contra Vercel se cambia SOLO la línea de @baseUrl.
+# Para correr la misma tanda contra Vercel se cambian @baseUrl y @cookieSesion.
 @local = http://localhost:3000
 @produccion = https://cinema-mdw-2026.vercel.app
 @baseUrl = {{local}}
 
-# Sesión de prueba: el stub de `lib/auth.ts` busca este email en la base y toma
-# de ahí el id y el rol. Son los usuarios que crea `pnpm db:seed`.
+# ── Sesión ───────────────────────────────────────────────────────────────────
+# Auth.js guarda la sesión en una cookie cifrada (lib/auth.ts). Los requests
+# protegidos la mandan a mano en el header `Cookie`, una por rol, así el
+# archivo alterna entre admin, gestor y usuario sin volver a iniciar sesión.
 #
-# En producción el stub está apagado, así que todo lo que manda
-# `x-usuario-prueba` responde 401 aunque el título diga otra cosa, con una
-# excepción: los bloques que esperan 400 siguen dando 400, porque la validación
-# va antes que la autorización. Contra Vercel se verifican los endpoints
-# públicos, los 401 (los bloques "sin sesión" no dependen de ids encadenados,
-# para que corran igual allá) y los 400 que tampoco necesitan un id del flujo;
-# el resto es verificable en clase 6, con Auth.js.
+# Cómo conseguir cada valor (dura 30 días):
+#   1. Abrir /api/auth/signin en el navegador y entrar con el usuario del rol:
+#      los de `pnpm db:seed` con la contraseña de SEED_PASSWORD, o con Google
+#      si el email está en SEED_EMAIL_ADMIN / SEED_EMAIL_GESTOR.
+#   2. DevTools → Application → Cookies → copiar el valor de la cookie que
+#      dice @cookieSesion y pegarlo abajo. Cerrar sesión (/api/auth/signout)
+#      y repetir con el rol siguiente.
 #
-# TODO (clase 6): con Auth.js el stub se borra y estos requests pasan a usar
-# la sesión real.
-@admin = admin@ejemplo.com
-@gestor = gestor@ejemplo.com
-@usuario = usuario@ejemplo.com
+# En https la cookie lleva el prefijo __Secure-: contra Vercel hay que cambiar
+# también @cookieSesion y usar sesiones sacadas de producción (AUTH_SECRET es
+# otro, así que las de local no sirven allá).
+#
+# Los requests que crean una cuenta llevan `# @no-cookie-jar`: el registro
+# inicia sesión (H1) y, sin eso, REST Client guardaría esa cookie y la mandaría
+# en los bloques "sin sesión", que dejarían de dar 401.
+@cookieSesion = authjs.session-token
+# @cookieSesion = __Secure-authjs.session-token
+@sesionAdmin =
+@sesionGestor =
+@sesionUsuario =
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -52,7 +60,7 @@
 # @name salaDelFlujo
 POST {{baseUrl}}/api/salas
 Content-Type: application/json
-x-usuario-prueba: {{admin}}
+Cookie: {{cookieSesion}}={{sesionAdmin}}
 
 {
   "nombre": "Sala flujo {{$timestamp}}",
@@ -64,7 +72,7 @@ x-usuario-prueba: {{admin}}
 # @name peliculaDelFlujo
 POST {{baseUrl}}/api/peliculas
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "titulo": "Película del flujo {{$timestamp}}",
@@ -78,7 +86,7 @@ x-usuario-prueba: {{gestor}}
 # @name funcionDelFlujo
 POST {{baseUrl}}/api/funciones
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "peliculaId": "{{peliculaDelFlujo.response.body.$.id}}",
@@ -97,7 +105,7 @@ GET {{baseUrl}}/api/funciones/{{funcionDelFlujo.response.body.$.id}}/butacas
 # @name compraDelFlujo
 POST {{baseUrl}}/api/compras
 Content-Type: application/json
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 {
   "funcionId": "{{funcionDelFlujo.response.body.$.id}}",
@@ -109,7 +117,7 @@ x-usuario-prueba: {{usuario}}
 
 ### Flujo 5 · Ver el historial (usuario) → 200; la compra del paso 4 es la primera
 GET {{baseUrl}}/api/compras
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 ### Flujo 6 · Las butacas compradas ahora figuran ocupadas → 200 con las dos primeras en `ocupada: true`
 GET {{baseUrl}}/api/funciones/{{funcionDelFlujo.response.body.$.id}}/butacas
@@ -131,7 +139,7 @@ GET {{baseUrl}}/api/funciones/{{funcionDelFlujo.response.body.$.id}}/butacas
 # @name salaAuxiliar
 POST {{baseUrl}}/api/salas
 Content-Type: application/json
-x-usuario-prueba: {{admin}}
+Cookie: {{cookieSesion}}={{sesionAdmin}}
 
 {
   "nombre": "Sala auxiliar {{$timestamp}}",
@@ -143,7 +151,7 @@ x-usuario-prueba: {{admin}}
 # @name funcionPorEmpezar
 POST {{baseUrl}}/api/funciones
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "peliculaId": "{{peliculaDelFlujo.response.body.$.id}}",
@@ -191,8 +199,9 @@ Content-Type: application/json
 
 # ── H1 · POST /api/usuarios (público) ────────────────────────────────────────
 
-### H1 · Registro exitoso → 201 con el usuario creado (sin contraseña ni hash)
+### H1 · Registro exitoso → 201 con el usuario creado (sin contraseña ni hash) y la sesión iniciada
 # @name registro
+# @no-cookie-jar
 POST {{baseUrl}}/api/usuarios
 Content-Type: application/json
 
@@ -223,6 +232,7 @@ Content-Type: application/json
 }
 
 ### H1 · El rol del body se ignora → 201 con rol USUARIO, nunca ADMINISTRADOR
+# @no-cookie-jar
 POST {{baseUrl}}/api/usuarios
 Content-Type: application/json
 
@@ -239,7 +249,7 @@ Content-Type: application/json
 # @name salaNueva
 POST {{baseUrl}}/api/salas
 Content-Type: application/json
-x-usuario-prueba: {{admin}}
+Cookie: {{cookieSesion}}={{sesionAdmin}}
 
 {
   "nombre": "Sala {{$timestamp}}",
@@ -250,7 +260,7 @@ x-usuario-prueba: {{admin}}
 ### H2 · Crear sala con datos inválidos: filas negativas → 400
 POST {{baseUrl}}/api/salas
 Content-Type: application/json
-x-usuario-prueba: {{admin}}
+Cookie: {{cookieSesion}}={{sesionAdmin}}
 
 {
   "nombre": "Sala inválida",
@@ -261,7 +271,7 @@ x-usuario-prueba: {{admin}}
 ### H2 · Crear sala con un nombre que ya existe → 409
 POST {{baseUrl}}/api/salas
 Content-Type: application/json
-x-usuario-prueba: {{admin}}
+Cookie: {{cookieSesion}}={{sesionAdmin}}
 
 {
   "nombre": "{{salaNueva.response.body.$.nombre}}",
@@ -282,7 +292,7 @@ Content-Type: application/json
 ### H2 · Crear sala con un rol que no es ADMINISTRADOR → 403
 POST {{baseUrl}}/api/salas
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "nombre": "Sala del gestor {{$timestamp}}",
@@ -294,33 +304,33 @@ x-usuario-prueba: {{gestor}}
 
 ### H2 · Listar salas → 200 con las salas vigentes (las eliminadas no aparecen)
 GET {{baseUrl}}/api/salas
-x-usuario-prueba: {{admin}}
+Cookie: {{cookieSesion}}={{sesionAdmin}}
 
 ### H2 · Listar salas con un límite fuera de rango (máximo 100) → 400
 GET {{baseUrl}}/api/salas?limite=999
-x-usuario-prueba: {{admin}}
+Cookie: {{cookieSesion}}={{sesionAdmin}}
 
 ### H2 · Listar salas sin sesión → 401
 GET {{baseUrl}}/api/salas
 
 ### H2 · Listar salas con un rol que no es ADMINISTRADOR → 403
 GET {{baseUrl}}/api/salas
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 # ── H5 · DELETE /api/salas/:id (ADMINISTRADOR) ───────────────────────────────
 
 ### H5 · Eliminar una sala sin funciones → 204 sin cuerpo (baja lógica)
 DELETE {{baseUrl}}/api/salas/{{salaNueva.response.body.$.id}}
-x-usuario-prueba: {{admin}}
+Cookie: {{cookieSesion}}={{sesionAdmin}}
 
 ### H5 · Eliminar una sala con funciones en curso o programadas → 409
 # La sala del flujo tiene la función de mañana.
 DELETE {{baseUrl}}/api/salas/{{salaDelFlujo.response.body.$.id}}
-x-usuario-prueba: {{admin}}
+Cookie: {{cookieSesion}}={{sesionAdmin}}
 
 ### H5 · Eliminar una sala inexistente → 404
 DELETE {{baseUrl}}/api/salas/id_que_no_existe
-x-usuario-prueba: {{admin}}
+Cookie: {{cookieSesion}}={{sesionAdmin}}
 
 ### H5 · Eliminar una sala sin sesión → 401, antes de mirar si el id existe
 DELETE {{baseUrl}}/api/salas/id_que_no_existe
@@ -329,7 +339,7 @@ DELETE {{baseUrl}}/api/salas/id_que_no_existe
 # Es la sala del flujo: si la autorización fallara, la baja igual rebotaría
 # con 409 y la tanda no se rompe.
 DELETE {{baseUrl}}/api/salas/{{salaDelFlujo.response.body.$.id}}
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 # ── H6 · POST /api/peliculas (GESTOR_CARTELERA) ──────────────────────────────
 
@@ -337,7 +347,7 @@ x-usuario-prueba: {{gestor}}
 # @name peliculaNueva
 POST {{baseUrl}}/api/peliculas
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "titulo": "El secreto de sus ojos {{$timestamp}}",
@@ -350,7 +360,7 @@ x-usuario-prueba: {{gestor}}
 ### H6 · Crear película con datos inválidos: clasificación fuera de la lista cerrada → 400
 POST {{baseUrl}}/api/peliculas
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "titulo": "Una película",
@@ -375,7 +385,7 @@ Content-Type: application/json
 ### H6 · Crear película con un rol que no es el de cartelera → 403
 POST {{baseUrl}}/api/peliculas
 Content-Type: application/json
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 {
   "titulo": "Una película",
@@ -389,11 +399,11 @@ x-usuario-prueba: {{usuario}}
 
 ### H6 · Listar películas en cartelera → 200 (las dadas de baja no aparecen)
 GET {{baseUrl}}/api/peliculas
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 ### H6 · Listar con un límite fuera de rango (máximo 100) → 400
 GET {{baseUrl}}/api/peliculas?limite=999
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 ### H6 · Listar sin sesión → 401
 # El catálogo del gestor no es público: la vitrina es GET /api/funciones.
@@ -401,7 +411,7 @@ GET {{baseUrl}}/api/peliculas
 
 ### H6 · Listar con un rol que no es el de cartelera → 403
 GET {{baseUrl}}/api/peliculas
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 # ── H6 · PATCH /api/peliculas/:id (GESTOR_CARTELERA) ─────────────────────────
 
@@ -409,7 +419,7 @@ x-usuario-prueba: {{usuario}}
 # Solo se mandan los campos que cambian: es PATCH, no PUT.
 PATCH {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "sinopsis": "Una sinopsis nueva, más corta.",
@@ -419,7 +429,7 @@ x-usuario-prueba: {{gestor}}
 ### H6 · Editar con datos inválidos: duración fuera de rango → 400
 PATCH {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "duracionMinutos": 0
@@ -428,7 +438,7 @@ x-usuario-prueba: {{gestor}}
 ### H6 · Editar con un campo mal escrito → 400 (no un 200 que no cambió nada)
 PATCH {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "tituloo": "El título con una o de más"
@@ -437,7 +447,7 @@ x-usuario-prueba: {{gestor}}
 ### H6 · Editar una película inexistente → 404
 PATCH {{baseUrl}}/api/peliculas/id_que_no_existe
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "titulo": "Da igual"
@@ -454,7 +464,7 @@ Content-Type: application/json
 ### H6 · Editar una película con un rol que no es el de cartelera → 403
 PATCH {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
 Content-Type: application/json
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 {
   "titulo": "Editada por quien no debía"
@@ -466,21 +476,21 @@ x-usuario-prueba: {{usuario}}
 # Baja lógica: deja de listarse y de admitir funciones nuevas, pero sus
 # funciones pasadas y las compras que las tienen siguen intactas.
 DELETE {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 ### H6 · Sacar de cartelera una película con funciones en curso o programadas → 409
 # La película del flujo tiene la función de mañana.
 DELETE {{baseUrl}}/api/peliculas/{{peliculaDelFlujo.response.body.$.id}}
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 ### H6 · Sacar de cartelera una película inexistente → 404
 DELETE {{baseUrl}}/api/peliculas/id_que_no_existe
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 ### H6 · Editar la película recién dada de baja → 404, igual que si no existiera
 PATCH {{baseUrl}}/api/peliculas/{{peliculaNueva.response.body.$.id}}
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "titulo": "Ya no está en cartelera"
@@ -493,7 +503,7 @@ DELETE {{baseUrl}}/api/peliculas/id_que_no_existe
 # Es la película del flujo: si la autorización fallara, la baja igual
 # rebotaría con 409 y la tanda no se rompe.
 DELETE {{baseUrl}}/api/peliculas/{{peliculaDelFlujo.response.body.$.id}}
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 # ── H3 · POST /api/funciones (GESTOR_CARTELERA) ──────────────────────────────
 # El caso de éxito es el paso 1 del flujo.
@@ -501,7 +511,7 @@ x-usuario-prueba: {{usuario}}
 ### H3 · Publicar una función con fecha en el pasado → 400 con el detalle por campo
 POST {{baseUrl}}/api/funciones
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "peliculaId": "{{peliculaDelFlujo.response.body.$.id}}",
@@ -512,7 +522,7 @@ x-usuario-prueba: {{gestor}}
 ### H3 · Publicar una función de una película inexistente → 404
 POST {{baseUrl}}/api/funciones
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "peliculaId": "no-existe",
@@ -523,7 +533,7 @@ x-usuario-prueba: {{gestor}}
 ### H3 · Publicar una función en una sala inexistente → 404
 POST {{baseUrl}}/api/funciones
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "peliculaId": "{{peliculaDelFlujo.response.body.$.id}}",
@@ -534,7 +544,7 @@ x-usuario-prueba: {{gestor}}
 ### H3 · Solapamiento: otra función en la misma sala a la misma hora que la del flujo → 409
 POST {{baseUrl}}/api/funciones
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "peliculaId": "{{peliculaDelFlujo.response.body.$.id}}",
@@ -546,7 +556,7 @@ x-usuario-prueba: {{gestor}}
 # La película que se sacó de cartelera en H6.
 POST {{baseUrl}}/api/funciones
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "peliculaId": "{{peliculaNueva.response.body.$.id}}",
@@ -558,7 +568,7 @@ x-usuario-prueba: {{gestor}}
 # La sala que se dio de baja en H5.
 POST {{baseUrl}}/api/funciones
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "peliculaId": "{{peliculaDelFlujo.response.body.$.id}}",
@@ -579,7 +589,7 @@ Content-Type: application/json
 ### H3 · Publicar una función sin el rol GESTOR_CARTELERA → 403
 POST {{baseUrl}}/api/funciones
 Content-Type: application/json
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 {
   "peliculaId": "{{peliculaDelFlujo.response.body.$.id}}",
@@ -617,7 +627,7 @@ GET {{baseUrl}}/api/funciones/no-existe/butacas
 ### H4 · Comprar sin butacas seleccionadas → 400 con el detalle por campo
 POST {{baseUrl}}/api/compras
 Content-Type: application/json
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 {
   "funcionId": "{{funcionDelFlujo.response.body.$.id}}",
@@ -627,7 +637,7 @@ x-usuario-prueba: {{usuario}}
 ### H4 · Comprar para una función inexistente → 404
 POST {{baseUrl}}/api/compras
 Content-Type: application/json
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 {
   "funcionId": "no-existe",
@@ -637,7 +647,7 @@ x-usuario-prueba: {{usuario}}
 ### H4 · Sobreventa: una butaca que ya se vendió en el paso 4 → 409, sin cobrar
 POST {{baseUrl}}/api/compras
 Content-Type: application/json
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 {
   "funcionId": "{{funcionDelFlujo.response.body.$.id}}",
@@ -649,7 +659,7 @@ x-usuario-prueba: {{usuario}}
 # el mismo 409: las butacas se buscan acotadas a la sala de la función.
 POST {{baseUrl}}/api/compras
 Content-Type: application/json
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 {
   "funcionId": "{{funcionDelFlujo.response.body.$.id}}",
@@ -662,7 +672,7 @@ x-usuario-prueba: {{usuario}}
 # volver a mandar con otra butaca de la sala auxiliar.
 POST {{baseUrl}}/api/compras
 Content-Type: application/json
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 {
   "funcionId": "{{funcionPorEmpezar.response.body.$.id}}",
@@ -681,7 +691,7 @@ Content-Type: application/json
 ### H4 · Comprar sin el rol USUARIO → 403
 POST {{baseUrl}}/api/compras
 Content-Type: application/json
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 {
   "funcionId": "{{funcionDelFlujo.response.body.$.id}}",
@@ -693,7 +703,7 @@ x-usuario-prueba: {{gestor}}
 # con la configuración normal responde 201 y compra la butaca.
 POST {{baseUrl}}/api/compras
 Content-Type: application/json
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 {
   "funcionId": "{{funcionDelFlujo.response.body.$.id}}",
@@ -704,19 +714,19 @@ x-usuario-prueba: {{usuario}}
 
 ### H4 · Historial del usuario de la sesión → 200 con sus compras, las más nuevas primero
 GET {{baseUrl}}/api/compras
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 ### H4 · Historial con un límite fuera de rango → 400
 GET {{baseUrl}}/api/compras?limite=999
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
 
 ### H4 · Historial sin sesión → 401
 GET {{baseUrl}}/api/compras
 
 ### H4 · Historial con un rol que no es USUARIO → 403
 GET {{baseUrl}}/api/compras
-x-usuario-prueba: {{gestor}}
+Cookie: {{cookieSesion}}={{sesionGestor}}
 
 ### H4 · El usuarioId de la query se ignora → 200 y siguen viéndose solo las compras propias
 GET {{baseUrl}}/api/compras?usuarioId=otro-usuario
-x-usuario-prueba: {{usuario}}
+Cookie: {{cookieSesion}}={{sesionUsuario}}
