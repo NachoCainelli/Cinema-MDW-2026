@@ -18,6 +18,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const butacas = await listarButacasDeFuncion(funcionId); // 404
     return NextResponse.json(butacas);
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("GET /api/funciones/:id/butacas", error);
   }
 }

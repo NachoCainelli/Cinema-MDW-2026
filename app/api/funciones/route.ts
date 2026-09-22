@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const funcion = await crearFuncion(datos); // 404 / 409
     return NextResponse.json(funcion, { status: 201 });
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("POST /api/funciones", error);
   }
 }
 
@@ -36,6 +36,6 @@ export async function GET(request: Request) {
     const funciones = await listarCartelera(query);
     return NextResponse.json(funciones);
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("GET /api/funciones", error);
   }
 }

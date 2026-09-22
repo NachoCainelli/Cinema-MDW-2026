@@ -25,6 +25,6 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(usuario, { status: 201 });
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("POST /api/usuarios", error);
   }
 }

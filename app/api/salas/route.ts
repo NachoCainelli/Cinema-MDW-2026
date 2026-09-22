@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const salas = await listarSalas(query);
     return NextResponse.json(salas, { status: 200 });
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("GET /api/salas", error);
   }
 }
 
@@ -24,6 +24,6 @@ export async function POST(request: Request) {
     const sala = await crearSala(datos);
     return NextResponse.json(sala, { status: 201 });
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("POST /api/salas", error);
   }
 }

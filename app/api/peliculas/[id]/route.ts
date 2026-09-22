@@ -21,7 +21,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const pelicula = await actualizarPelicula(peliculaId, datos); // 404
     return NextResponse.json(pelicula);
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("PATCH /api/peliculas/:id", error);
   }
 }
 
@@ -40,6 +40,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     await darDeBajaPelicula(peliculaId); // 404 / 409
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("DELETE /api/peliculas/:id", error);
   }
 }
