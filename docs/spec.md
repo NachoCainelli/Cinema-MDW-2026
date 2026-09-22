@@ -252,22 +252,74 @@ Esta lista es **igual para todos los proyectos**: no hay que adaptarla, hay que 
 
 ## 8. Integración externa
 
-**Cuál:** pasarela de pago simulada (mock).
+**Cuál:** pasarela de pago simulada (mock), en `lib/pagos.ts`.
 
 **Para qué:** aprueba o rechaza el pago de una Compra al instante, sin credenciales ni
 dependencias externas reales. Permite probar el flujo completo de compra (incluido el caso de
 pago rechazado de H4) sin depender de una pasarela real.
 
-**Qué pasa si se cae:** al ser un mock local no depende de un servicio externo; simula un rechazo
-ocasional para poder probar el caso de error de H4.
+**Qué pasa si se cae:** no puede "caerse" en el sentido de no responder — es local y resuelve
+siempre, al instante (`PAGO_MOCK_TASA_RECHAZO` simula el rechazo, no el timeout). Sirve igual de
+modelo para el resto de esta sección: si una pasarela real no respondiera, el sistema la trataría
+como un pago rechazado más — **402**, la Compra no se persiste (no hay estado "pendiente"
+esperando una respuesta que no llega, sección 6) y las butacas vuelven a estar libres. La
+diferencia entre "rechazado" y "no responde" es interna de la pasarela; no cambia el contrato que
+ve quien compra.
 
-**Cuál:** bucket público de Supabase Storage, para el póster de la Película.
+**Cuál:** bucket público de Supabase Storage, para el póster de la Película (`imagenUrl`).
 
-**Para qué:** guardar la imagen y servirla directo desde su URL pública (campo `imagenUrl`,
-opcional). No se guarda el archivo en la base de datos, solo la URL.
+**Para qué:** guardar la imagen y servirla directo desde su URL pública. No se guarda el archivo en
+la base de datos, solo la URL; `imagenUrl` es opcional en el schema (`lib/schemas/pelicula.ts`).
 
-**Qué pasa si se cae:** la película se sigue mostrando sin imagen (el campo es opcional); no
-bloquea ninguna otra funcionalidad del sistema.
+**Qué pasa si se cae, según la operación:**
+- **Al crear o editar una película (`POST`/`PATCH /api/peliculas`):** la creación no depende de que
+  Storage responda en el momento del request — `imagenUrl` es una URL que ya existe, no un archivo
+  que el endpoint reciba y suba. Si el bucket está caído mientras el gestor sube la imagen desde la
+  UI, se aplica la misma política que la de cualquier campo opcional que falla: la creación no se
+  bloquea, la película queda sin imagen y se puede completar después con `PATCH` cuando el
+  servicio vuelva. No hay reintento automático: reintentar es acción de la persona, no del sistema.
+- **Al mostrar la cartelera o el catálogo (`GET /api/funciones`, `GET /api/peliculas`):** la URL ya
+  está guardada en la base y el endpoint la devuelve igual; lo que puede fallar es que el navegador
+  no cargue la imagen. No hay imagen de reemplazo del lado del servidor — sería otro archivo en el
+  mismo bucket caído —, así que la resuelve el cliente: un `onError` que cambia a un ícono de
+  placeholder local, parte del bundle y no de Storage. El `alt` no depende de que la imagen cargue
+  — es texto, va en el HTML igual —, así que el criterio de accesibilidad de la sección 7 se cumple
+  aunque el póster no aparezca.
+
+**Cuál:** la base de datos (Postgres en Supabase), vía Prisma (`lib/db/`).
+
+**Para qué:** es el estado del sistema entero — usuarios, salas, películas, funciones, compras —.
+A diferencia de las dos anteriores no es una integración opcional: sin base no hay sistema.
+
+**Qué pasa si se cae:** acá no hay degradación posible ni campo que dejar vacío. Cualquier consulta
+de `lib/db/` rechaza; el error no es ninguna de las clases de `lib/errores.ts` (no es una regla de
+negocio, es la infraestructura) y cae en la rama genérica de `respuestaDeError`: **500**, sin el
+detalle interno en la respuesta, con el nombre del endpoint adelante en el log del servidor para
+poder ubicarlo rápido entre los ocho handlers. Es la respuesta correcta a propósito: un 500 le dice a
+quien pregunta "no es tu culpa, es nuestra", a diferencia de un 400 o un 409 que sí le explican qué
+tiene que cambiar.
+
+**Cuál:** el proveedor de identidad (Auth.js, `lib/auth.ts`), con Google y Credentials.
+
+**Para qué:** valida quién es cada sesión y con qué rol; el resto del sistema confía siempre en
+`obtenerUsuario()`/`requerirUsuario(rol)` y nunca en un dato que venga del cliente (sección 6).
+
+**Qué pasa si se cae:**
+- **Cae Google, pero Auth.js sigue en pie:** se entra igual por Credentials (email y contraseña,
+  H1). Es la cuenta de Google la que no funciona ese rato, no la sesión del sistema; quien ya tenía
+  cuenta por Credentials no nota nada.
+- **Cae Auth.js entero** (o fallan Google y Credentials a la vez, mucho menos probable): nadie
+  puede iniciar sesión nueva. `obtenerUsuario()` depende de `auth()`, así que todo lo que exige
+  sesión responde como si nadie estuviera logueado — no hay forma de distinguir "no hay sesión" de
+  "Auth.js no responde" desde el endpoint —, y los públicos (`GET /api/funciones`,
+  `GET /api/funciones/:id/butacas`) siguen andando: la cartelera se puede seguir mirando sin poder
+  comprar.
+- **La compra a medio hacer:** no existe tal cosa. No hay reserva temporal de butaca (sección 6:
+  "la disponibilidad se valida recién al confirmar la compra"), y `POST /api/compras` exige sesión
+  antes de tocar la base. Si la sesión se cae entre que alguien elige sus butacas en la UI y
+  confirma, el request de confirmación falla con 401 sin haber escrito nada — la Compra y sus
+  Entradas recién se crean, en una única transacción, después de pasar la sesión y el pago
+  (`lib/db/compras.ts`) —, así que no hay ninguna compra a medias que limpiar.
 
 ## 9. Fuera de alcance
 
