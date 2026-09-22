@@ -86,6 +86,15 @@ describe("POST /api/compras", () => {
     expect(crear).toHaveBeenCalledWith(bodyValido, usuario.id);
   });
 
+  it("responde 401 sin sesión aunque no se haya seleccionado ninguna butaca: la sesión se revisa primero", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await POST(postRequest({ ...bodyValido, butacaIds: [] }));
+
+    expect(respuesta.status).toBe(401);
+    expect(crear).not.toHaveBeenCalled();
+  });
+
   it("responde 400 si no se seleccionó ninguna butaca", async () => {
     const respuesta = await POST(postRequest({ ...bodyValido, butacaIds: [] }));
 
@@ -154,6 +163,15 @@ describe("GET /api/compras", () => {
     autorizar.mockRejectedValue(new ErrorNoAutenticado());
 
     const respuesta = await GET(getRequest());
+
+    expect(respuesta.status).toBe(401);
+    expect(listar).not.toHaveBeenCalled();
+  });
+
+  it("responde 401 sin sesión aunque el límite también sea inválido: la sesión se revisa primero", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await GET(getRequest("?limite=999"));
 
     expect(respuesta.status).toBe(401);
     expect(listar).not.toHaveBeenCalled();

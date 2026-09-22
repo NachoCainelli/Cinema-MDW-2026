@@ -67,6 +67,15 @@ describe("DELETE /api/salas/:id", () => {
     expect(eliminar).not.toHaveBeenCalled();
   });
 
+  it("responde 401 sin sesión aunque el id de la ruta también sea inválido: la sesión se revisa primero", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await DELETE(deleteRequest(), contexto(""));
+
+    expect(respuesta.status).toBe(401);
+    expect(eliminar).not.toHaveBeenCalled();
+  });
+
   it("responde 404 si la sala no existe", async () => {
     eliminar.mockRejectedValue(new ErrorNoEncontrado("No se encontró la sala con id sala_1"));
 

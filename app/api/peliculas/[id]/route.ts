@@ -11,13 +11,21 @@ import { actualizarPeliculaSchema, peliculaIdSchema } from "@/lib/schemas/pelicu
  * Es PATCH y no PUT: modifica los campos que le mandan y deja el resto como
  * está, por eso valida con el schema en versión `.partial()`. Un body sin
  * ningún campo conocido es 400.
+ *
+ * Orden: sesión y rol primero (no dependen del id ni del body), y recién
+ * después el id y el body. El 404 ("existe y está en cartelera") no se
+ * adelanta al 400 a propósito: `actualizarPelicula` resuelve las dos cosas
+ * en una sola escritura (`where: { id, bajaEn: null }` + `update`), así que
+ * separar "existe" de "el body es válido" en dos pasos distintos exigiría una
+ * consulta aparte solo para el orden, y abriría una ventana entre chequear y
+ * escribir que hoy no existe (ver AGENTS.md).
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const { id } = await params;
     const peliculaId = peliculaIdSchema.parse(id); // 400
     const datos = actualizarPeliculaSchema.parse(await request.json()); // 400
-    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const pelicula = await actualizarPelicula(peliculaId, datos); // 404
     return NextResponse.json(pelicula);
   } catch (error) {
@@ -30,13 +38,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
  *
  * Es una baja lógica: la película deja de listarse y de admitir funciones
  * nuevas, pero sus funciones pasadas y el historial de ventas quedan intactos.
- * Responde 204 sin cuerpo, igual que la baja de sala.
+ * Responde 204 sin cuerpo, igual que la baja de sala. Mismo razonamiento que
+ * el PATCH sobre por qué el 404 no se adelanta al 400 del id.
  */
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const { id } = await params;
     const peliculaId = peliculaIdSchema.parse(id); // 400
-    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     await darDeBajaPelicula(peliculaId); // 404 / 409
     return new NextResponse(null, { status: 204 });
   } catch (error) {
