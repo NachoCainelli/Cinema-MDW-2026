@@ -13,10 +13,20 @@
  *
  * El catálogo de películas vive en `prisma/data/peliculas.ts`.
  *
- * `passwordHash` es un valor de ejemplo, no un hash real — se reemplaza en la
- * clase 6, cuando se cablea Auth.js.
+ * Usuarios: uno por rol, todos con la contraseña de SEED_PASSWORD, hasheada
+ * con `lib/password.ts` para que se pueda entrar por Credentials. No tiene
+ * valor por defecto a propósito: una contraseña escrita en el repo es pública,
+ * y si esta base es la misma que usa producción, cualquiera entraría como
+ * administrador.
+ *
+ * Los emails del administrador y del gestor se cambian con SEED_EMAIL_ADMIN y
+ * SEED_EMAIL_GESTOR: si se pone ahí el email de una cuenta de Google, al
+ * iniciar sesión con Google se entra directamente con ese rol (el login con
+ * Google no pisa filas existentes).
  */
 import { PrismaClient, Rol } from "@prisma/client";
+
+import { hashearPassword } from "../lib/password";
 import { peliculas } from "./data/peliculas";
 
 const prisma = new PrismaClient();
@@ -45,15 +55,32 @@ const HORARIOS = [
 /** Cuántos días de cartelera se programan, empezando mañana. */
 const DIAS_DE_CARTELERA = 5;
 
+/** El mismo mínimo que pide el registro (lib/schemas/usuario.ts). */
+const LARGO_MINIMO_PASSWORD = 8;
+
+/** Email de un usuario sembrado: el de la variable si está, si no el de ejemplo. */
+function emailDe(variable: string | undefined, porDefecto: string) {
+  return (variable?.trim() || porDefecto).toLowerCase();
+}
+
 async function main() {
+  const password = process.env.SEED_PASSWORD ?? "";
+  if (password.length < LARGO_MINIMO_PASSWORD) {
+    throw new Error(
+      `Falta SEED_PASSWORD en .env.local (mínimo ${LARGO_MINIMO_PASSWORD} caracteres): ` +
+        "es la contraseña con la que se entra con los usuarios de ejemplo.",
+    );
+  }
+  const passwordHash = await hashearPassword(password);
+
   const usuarios = [
     {
-      email: "admin@ejemplo.com",
+      email: emailDe(process.env.SEED_EMAIL_ADMIN, "admin@ejemplo.com"),
       nombre: "Admin de ejemplo",
       rol: Rol.ADMINISTRADOR,
     },
     {
-      email: "gestor@ejemplo.com",
+      email: emailDe(process.env.SEED_EMAIL_GESTOR, "gestor@ejemplo.com"),
       nombre: "Gestor de cartelera de ejemplo",
       rol: Rol.GESTOR_CARTELERA,
     },
@@ -64,11 +91,14 @@ async function main() {
     },
   ];
 
+  // El `update` también fija la contraseña y el rol: así re-correr el seed
+  // arregla las bases sembradas antes de la clase 6 (con un hash falso) y
+  // promueve una cuenta que ya había entrado con Google como USUARIO.
   for (const { email, nombre, rol } of usuarios) {
     await prisma.usuario.upsert({
       where: { email },
-      update: {},
-      create: { email, nombre, passwordHash: "seed-no-es-un-hash-real", rol },
+      update: { passwordHash, rol },
+      create: { email, nombre, passwordHash, rol },
     });
   }
 
