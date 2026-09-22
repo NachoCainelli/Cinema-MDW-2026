@@ -194,9 +194,12 @@ describe("obtenerCompraDeUsuario", () => {
     expect(argumento.select).toBeDefined();
   });
 
-  it("devuelve null si no hay una compra con ese id que sea de quien pregunta", async () => {
+  it("lanza 404 si no hay una compra con ese id que sea de quien pregunta", async () => {
     buscarCompra.mockResolvedValue(null);
 
-    await expect(obtenerCompraDeUsuario("com_ajena", usuarioId)).resolves.toBeNull();
+    const error = await obtenerCompraDeUsuario("com_ajena", usuarioId).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ErrorNoEncontrado);
+    expect(error).toHaveProperty("message", "No se encontró la compra con id com_ajena");
   });
 });

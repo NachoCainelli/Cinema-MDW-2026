@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ErrorNoAutenticado, ErrorNoAutorizado } from "@/lib/errores";
+import { ErrorNoAutenticado, ErrorNoAutorizado, ErrorNoEncontrado } from "@/lib/errores";
 
 vi.mock("@/lib/auth", () => ({ requerirUsuario: vi.fn() }));
 vi.mock("@/lib/db/compras", () => ({ obtenerCompraDeUsuario: vi.fn() }));
@@ -22,8 +22,9 @@ const usuario = {
 const compraPropia = { id: "com_1", estado: "PAGADA", entradas: [] };
 
 /**
- * La base mockeada se comporta como el `where: { id, usuarioId }`: solo
- * encuentra la compra si el id existe y además es de quien pregunta.
+ * `lib/db/` mockeada se comporta como el `where: { id, usuarioId }`: solo
+ * encuentra la compra si el id existe y además es de quien pregunta; si no,
+ * lanza el mismo 404 que la función real.
  */
 let compras: Array<typeof compraPropia & { usuarioId: string }> = [];
 
@@ -45,7 +46,8 @@ beforeEach(() => {
   ];
   obtener.mockImplementation(async (id, usuarioId) => {
     const compra = compras.find((c) => c.id === id && c.usuarioId === usuarioId);
-    return compra ? ({ id: compra.id, estado: compra.estado, entradas: compra.entradas } as never) : null;
+    if (!compra) throw new ErrorNoEncontrado(`No se encontró la compra con id ${id}`);
+    return { id: compra.id, estado: compra.estado, entradas: compra.entradas } as never;
   });
 });
 
