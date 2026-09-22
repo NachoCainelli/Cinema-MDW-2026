@@ -1,8 +1,10 @@
-# Matriz de permisos — preparación para Auth.js (clase 6)
+# Matriz de permisos
 
-Este documento traduce `docs/api.md` a una matriz rol × operación, y deja escritas las
-decisiones que hoy resuelve el stub de `lib/auth.ts` (header `x-usuario-prueba`), para no
-improvisarlas mientras se configura el proveedor real. Sigue el mismo criterio que ya usamos en
+Este documento traduce `docs/api.md` a una matriz rol × operación. Se escribió en la
+preparación de la clase 6, cuando la sesión era un stub (header `x-usuario-prueba`), para no
+improvisar las decisiones mientras se configuraba el proveedor real. Hoy la sesión es de Auth.js
+(`lib/auth.ts`, ADR 0003 y 0004) y la matriz sigue valiendo igual: `requerirUsuario` no cambió.
+Sigue el mismo criterio que ya usamos en
 `docs/spec.md` y `docs/api.md`: se actualiza junto con el código, no es un documento que se
 escribe una vez y se desactualiza (Manifiesto Ágil, principio de "la documentación justa y
 necesaria" — no cero documentación, documentación que no mienta).
@@ -93,6 +95,14 @@ antes de mergear ese PR, no después.
   nombre que se defina), protegido con `requerirUsuario("ADMINISTRADOR")`, que reciba
   `email`, `nombre`, `contraseña` y `rol` (`ADMINISTRADOR` | `GESTOR_CARTELERA`), y que quede
   documentado en `docs/api.md` antes de la clase 6 o durante ella.
+
+  **Actualización (#46): no lo agregamos, y es una decisión.** Hoy esas cuentas se crean por
+  seed (`pnpm db:seed`) o desde Prisma Studio, y la clase 6 lo admite explícitamente. Lo que se
+  evalúa no es que exista un panel de alta: es que no haya forma de asignarse un rol a uno mismo.
+  Eso se cumple por los dos caminos de login: `POST /api/usuarios` crea siempre con `USUARIO`, y
+  el primer login con Google también (`obtenerOCrearUsuarioDeGoogle`, que además no pisa el rol
+  de una cuenta que ya existe). El detalle está en el ADR 0003. Si más adelante se agrega el
+  endpoint, va con `requerirUsuario("ADMINISTRADOR")` y con su fila en la matriz.
 - **¿Por qué nadie se autoregistra como Administrador ni como Gestor de cartelera?** Porque esos
   dos roles operan la infraestructura del cine (crear salas, armar la cartelera) y el registro
   público (H1) no tiene ningún control de invitación ni verificación — es solo email y
@@ -125,6 +135,12 @@ otro usuario responde 404, no 403 — pero por ahora es una regla sin caso de pr
 código.
 
 ### 3. Casos que hoy no se pueden verificar (se cierran en la clase 6)
+
+**Actualización (#41, #46): esta frontera ya se cerró.** El stub se reemplazó por Auth.js con
+Google y Credentials (ADR 0003), y `obtenerUsuario()` lee la sesión del token JWT (ADR 0004) en
+local y en producción por igual. Ya no mira `NODE_ENV`, así que las celdas `✅` y `403` de la
+matriz se pueden verificar en producción. Lo que sigue es el análisis original, escrito con el
+stub todavía puesto.
 
 Leyendo `lib/auth.ts` con cuidado apareció algo que cambia el alcance de "qué se puede probar
 hoy": el stub de sesión se apaga solo en producción.
