@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 ### Seguridad
 - **La autorización se verifica siempre en el servidor**, en cada Route Handler y cada Server Action. Que la UI esconda un botón no es una medida de seguridad.
 - Nunca confiar en un `userId` o un `role` que venga del cliente: se leen de la sesión con `obtenerUsuario()` / `requerirUsuario(rol)` de `lib/auth.ts`, y bajan a `lib/db/` por parámetro.
-- Hasta la clase 6 hay un stub de sesión en `lib/auth.ts` (header `x-usuario-prueba`) que solo funciona con `AUTH_STUB_HABILITADO="true"` y jamás en producción. No setear esa variable en Vercel; se borra cuando entre Auth.js.
+- La sesión es de Auth.js (`lib/auth.ts`), con Google y Credentials y `strategy: "jwt"`. El rol se lee de la base al iniciar sesión y viaja en el token: ningún camino de login ni de registro toma el rol de lo que manda el cliente, y una cuenta nueva siempre nace `USUARIO`.
 - Los secretos van en variables de entorno. Ninguna variable con secretos lleva el prefijo `NEXT_PUBLIC_`.
 - pnpm es el único gestor de paquetes permitido. No commitear `package-lock.json`, `yarn.lock` ni `bun.lock`.
 - Toda dependencia nueva con scripts de instalación debe revisarse antes de aprobarla con `pnpm approve-builds`.
