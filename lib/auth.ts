@@ -1,8 +1,27 @@
-import { headers } from "next/headers";
+/**
+ * Sesión con Auth.js (docs/adr/0003 y 0004).
+ *
+ * Dos proveedores: Google, que no nos hace guardar contraseñas, y Credentials,
+ * porque H1 pide registro con email y contraseña. La sesión es un JWT dentro
+ * de una cookie cifrada con AUTH_SECRET: el id y el rol viajan ahí y no se
+ * consulta la base en cada request. La contracara es que el rol del token es
+ * una foto del momento del login: si un administrador le cambia el rol a
+ * alguien, recién se nota cuando esa persona vuelve a iniciar sesión.
+ *
+ * El resto del proyecto no conoce Auth.js: los handlers solo llaman a
+ * `obtenerUsuario()` / `requerirUsuario(rol)`.
+ */
+import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import type { Rol } from "@prisma/client";
 
-import { buscarUsuarioPorEmail } from "@/lib/db/usuarios";
+import {
+  obtenerOCrearUsuarioDeGoogle,
+  verificarCredenciales,
+} from "@/lib/db/usuarios";
 import { ErrorNoAutenticado, ErrorNoAutorizado } from "@/lib/errores";
+import { credencialesSchema, rolSchema } from "@/lib/schemas/usuario";
 
 export type { Rol };
 
@@ -13,42 +32,84 @@ export type UsuarioSesion = {
   rol: Rol;
 };
 
-const HEADER_USUARIO_DE_PRUEBA = "x-usuario-prueba";
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  session: { strategy: "jwt" },
+  providers: [
+    // Lee AUTH_GOOGLE_ID y AUTH_GOOGLE_SECRET del entorno.
+    Google,
+    Credentials({
+      credentials: { email: {}, password: {} },
+      async authorize(credenciales) {
+        // Lo que llega del formulario es entrada externa: se valida como
+        // cualquier otro body. Un formato inválido es un login fallido más.
+        const datos = credencialesSchema.safeParse(credenciales);
+        if (!datos.success) return null;
 
-/**
- * Stub de sesión para probar los endpoints protegidos antes de Auth.js: toma
- * el email del header `x-usuario-prueba` (o de AUTH_STUB_EMAIL) y busca esa
- * fila en la base. Solo con AUTH_STUB_HABILITADO="true" y nunca en producción.
- *
- * TODO (clase 6): borrar este stub cuando entre Auth.js, junto con
- * AUTH_STUB_HABILITADO y AUTH_STUB_EMAIL de `.env.example`.
- */
-async function obtenerUsuarioDePrueba(): Promise<UsuarioSesion | null> {
-  if (process.env.NODE_ENV === "production") return null;
-  if (process.env.AUTH_STUB_HABILITADO !== "true") return null;
+        const usuario = await verificarCredenciales(datos.data);
+        if (!usuario) return null;
 
-  // headers() solo existe dentro de un request; en un test o en un script no.
-  let emailDelHeader: string | null = null;
-  try {
-    emailDelHeader = (await headers()).get(HEADER_USUARIO_DE_PRUEBA);
-  } catch {
-    emailDelHeader = null;
-  }
+        return { id: usuario.id, email: usuario.email, name: usuario.nombre, rol: usuario.rol };
+      },
+    }),
+  ],
+  callbacks: {
+    signIn({ account, profile }) {
+      // Sin esto, una cuenta de Google con un email sin verificar podría
+      // entrar como la cuenta nuestra que tiene ese email, rol incluido.
+      if (account?.provider === "google") return profile?.email_verified === true;
+      return true;
+    },
 
-  const email = emailDelHeader?.trim() || process.env.AUTH_STUB_EMAIL?.trim();
-  if (!email) return null;
+    async jwt({ token, user, account }) {
+      // `user` solo viene en el login; en los requests siguientes el token
+      // ya trae el id y el rol, y se devuelve tal cual.
+      if (!user) return token;
 
-  return buscarUsuarioPorEmail(email);
-}
+      if (account?.provider === "google") {
+        if (!user.email) throw new Error("Google no devolvió el email de la cuenta");
+
+        const usuario = await obtenerOCrearUsuarioDeGoogle({
+          email: user.email.toLowerCase(),
+          nombre: user.name?.trim() || user.email,
+        });
+        token.usuarioId = usuario.id;
+        token.rol = usuario.rol;
+        // El nombre y el email salen de nuestra base, no de Google.
+        token.name = usuario.nombre;
+        token.email = usuario.email;
+        return token;
+      }
+
+      // Credentials: `user` es lo que devolvió `authorize`, leído de la base.
+      if (!user.id || !user.rol) throw new Error("authorize devolvió un usuario incompleto");
+      token.usuarioId = user.id;
+      token.rol = user.rol;
+      return token;
+    },
+
+    session({ session, token }) {
+      // El token está cifrado con nuestro secreto, pero su tipo para
+      // TypeScript es un objeto abierto: se valida la forma antes de copiarlo.
+      const rol = rolSchema.safeParse(token.rol);
+      if (typeof token.usuarioId === "string" && rol.success) {
+        session.user.usuarioId = token.usuarioId;
+        session.user.rol = rol.data;
+      }
+      return session;
+    },
+  },
+});
 
 export async function obtenerUsuario(): Promise<UsuarioSesion | null> {
-  // El `return await` no es redundante. Con Next 16.3.0, sin él, Turbopack
-  // deducía en compilación que `await obtenerUsuario()` nunca es null y
-  // borraba el `if (!usuario)` de `requerirUsuario`: sin sesión, los endpoints
-  // protegidos respondían 500 en vez de 401, en `pnpm dev` y en Vercel. Next
-  // 16.3.4 ya compila bien el retorno directo; el `await` queda para que el
-  // chequeo no dependa de que ese bug no vuelva.
-  return await obtenerUsuarioDePrueba();
+  const usuario = (await auth())?.user;
+  if (!usuario?.usuarioId || !usuario.rol || !usuario.email) return null;
+
+  return {
+    id: usuario.usuarioId,
+    email: usuario.email,
+    nombre: usuario.name ?? "",
+    rol: usuario.rol,
+  };
 }
 
 export async function requerirUsuario(rol?: Rol): Promise<UsuarioSesion> {

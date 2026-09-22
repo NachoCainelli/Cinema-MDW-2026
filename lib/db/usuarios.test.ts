@@ -3,12 +3,22 @@ import { Prisma } from "@prisma/client";
 
 import { ErrorDeConflicto } from "@/lib/errores";
 
-const { crear, buscar } = vi.hoisted(() => ({ crear: vi.fn(), buscar: vi.fn() }));
+const { crear, buscar, upsert } = vi.hoisted(() => ({
+  crear: vi.fn(),
+  buscar: vi.fn(),
+  upsert: vi.fn(),
+}));
 vi.mock("@/lib/db/client", () => ({
-  prisma: { usuario: { create: crear, findUnique: buscar } },
+  prisma: { usuario: { create: crear, findUnique: buscar, upsert } },
 }));
 
-const { buscarUsuarioPorEmail, registrarUsuario } = await import("./usuarios");
+const { hashearPassword } = await import("@/lib/password");
+const {
+  buscarUsuarioPorEmail,
+  obtenerOCrearUsuarioDeGoogle,
+  registrarUsuario,
+  verificarCredenciales,
+} = await import("./usuarios");
 
 const datos = {
   email: "persona@mail.com",
@@ -24,10 +34,15 @@ const usuarioCreado = {
 };
 
 /** El argumento con el que se llamó a un mock de Prisma, o un error si no se llamó. */
-function argumentoDe(mock: typeof crear | typeof buscar) {
+function argumentoDe(mock: typeof crear | typeof buscar | typeof upsert) {
   const llamada = mock.mock.calls[0];
   if (!llamada) throw new Error("se esperaba una llamada a Prisma y no hubo ninguna");
-  return llamada[0] as { data?: Record<string, unknown>; select: Record<string, unknown> };
+  return llamada[0] as {
+    data?: Record<string, unknown>;
+    create?: Record<string, unknown>;
+    update?: Record<string, unknown>;
+    select: Record<string, unknown>;
+  };
 }
 
 function errorDePrisma(code: string) {
@@ -85,5 +100,63 @@ describe("buscarUsuarioPorEmail", () => {
 
     await expect(buscarUsuarioPorEmail(datos.email)).resolves.toEqual(usuarioCreado);
     expect(argumentoDe(buscar).select).not.toHaveProperty("passwordHash");
+  });
+});
+
+describe("verificarCredenciales", () => {
+  it("devuelve el usuario, sin el hash, si la contraseña coincide", async () => {
+    buscar.mockResolvedValue({ ...usuarioCreado, passwordHash: await hashearPassword(datos.password) });
+
+    const usuario = await verificarCredenciales({ email: datos.email, password: datos.password });
+
+    expect(usuario).toEqual(usuarioCreado);
+    expect(usuario).not.toHaveProperty("passwordHash");
+  });
+
+  it("devuelve null si la contraseña no coincide", async () => {
+    buscar.mockResolvedValue({ ...usuarioCreado, passwordHash: await hashearPassword(datos.password) });
+
+    await expect(
+      verificarCredenciales({ email: datos.email, password: "otraClave" }),
+    ).resolves.toBeNull();
+  });
+
+  it("devuelve null si el email no existe", async () => {
+    buscar.mockResolvedValue(null);
+
+    await expect(
+      verificarCredenciales({ email: "nadie@mail.com", password: datos.password }),
+    ).resolves.toBeNull();
+  });
+
+  it("devuelve null si la cuenta se creó con Google y no tiene contraseña", async () => {
+    buscar.mockResolvedValue({ ...usuarioCreado, passwordHash: null });
+
+    await expect(
+      verificarCredenciales({ email: datos.email, password: datos.password }),
+    ).resolves.toBeNull();
+  });
+});
+
+describe("obtenerOCrearUsuarioDeGoogle", () => {
+  it("no pisa nada de una cuenta que ya existe: update vacío", async () => {
+    upsert.mockResolvedValue(usuarioCreado);
+
+    await obtenerOCrearUsuarioDeGoogle({ email: datos.email, nombre: datos.nombre });
+
+    expect(argumentoDe(upsert).update).toEqual({});
+  });
+
+  it("crea la cuenta nueva como USUARIO y sin contraseña", async () => {
+    upsert.mockResolvedValue(usuarioCreado);
+
+    await obtenerOCrearUsuarioDeGoogle({ email: datos.email, nombre: datos.nombre });
+
+    expect(argumentoDe(upsert).create).toEqual({
+      email: datos.email,
+      nombre: datos.nombre,
+      rol: "USUARIO",
+    });
+    expect(argumentoDe(upsert).select).not.toHaveProperty("passwordHash");
   });
 });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { respuestaDeError } from "@/lib/api/respuestas";
+import { signIn } from "@/lib/auth";
 import { registrarUsuario } from "@/lib/db/usuarios";
 import { registrarUsuarioSchema } from "@/lib/schemas/usuario";
 
@@ -17,6 +18,11 @@ export async function POST(request: Request) {
   try {
     const datos = registrarUsuarioSchema.parse(await request.json()); // 400
     const usuario = await registrarUsuario(datos); // 409 email duplicado
+    await signIn("credentials", {
+      email: datos.email,
+      password: datos.password,
+      redirect: false,
+    });
     return NextResponse.json(usuario, { status: 201 });
   } catch (error) {
     return respuestaDeError(error);

@@ -136,7 +136,7 @@ describe("eliminarSalaLogico", () => {
   });
 
   it("el mensaje de conflicto enumera la función en conflicto, con título y horario", async () => {
-    buscarFunciones.mockResolvedValue([funcionQueImpide({ inicio: new Date("2026-09-16T20:00:00.000Z") })]);
+    buscarFunciones.mockResolvedValue([funcionQueImpide()]);
 
     await expect(eliminarSalaLogico("1")).rejects.toMatchObject({
       message: expect.stringContaining("Una pelicula"),

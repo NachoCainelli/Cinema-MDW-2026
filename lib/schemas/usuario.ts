@@ -27,6 +27,15 @@ export const registrarUsuarioSchema = z.object({
 });
 export type RegistrarUsuarioInput = z.infer<typeof registrarUsuarioSchema>;
 
+// Login con email y contraseña (provider Credentials de Auth.js). La
+// contraseña no repite el mínimo de 8 del registro: acá solo se compara contra
+// el hash, y un mensaje de "muy corta" diría algo de la contraseña real.
+export const credencialesSchema = z.object({
+  email: emailSchema,
+  password: z.string().min(1).max(72),
+});
+export type CredencialesInput = z.infer<typeof credencialesSchema>;
+
 // Un administrador crea la cuenta de otro administrador o de un gestor de
 // cartelera. No hay autoregistro para estos dos roles (sección 6 del spec).
 export const crearCuentaStaffSchema = z.object({
