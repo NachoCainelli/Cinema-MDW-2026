@@ -42,7 +42,7 @@ model Usuario {
   id           String   @id @default(cuid())
   email        String   @unique
   nombre       String
-  passwordHash String
+  passwordHash String?
   rol          Rol      @default(USUARIO)
   creadoEn     DateTime @default(now())
 
