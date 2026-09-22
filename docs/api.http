@@ -234,9 +234,9 @@ GET {{baseUrl}}/api/funciones/{{funcionPorEmpezar.response.body.$.id}}/butacas
 # ═════════════════════════════════════════════════════════════════════════════
 
 ### Transversal · Body que no es JSON válido → 400 "El cuerpo del request no es JSON válido", sin `detalles`
-# Contra un endpoint público, para que corra igual en producción. En uno con
-# sesión la respuesta es la misma: la validación va antes que la autorización,
-# así que el body mal formado también corta con 400 y no con 401.
+# Contra un endpoint público, para que el 400 no dependa de la sesión. En uno
+# con sesión, sin cookie la respuesta es 401 y no 400: la autorización va antes
+# que la validación (AGENTS.md, "Capa API").
 POST {{baseUrl}}/api/usuarios
 Content-Type: application/json
 
