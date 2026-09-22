@@ -72,10 +72,14 @@ export async function POST(request: Request) {
     const sala = await crearSala(datos, usuario.id); // 404 / 409
     return NextResponse.json(sala, { status: 201 });
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("POST /api/salas", error);
   }
 }
 ```
+
+`respuestaDeError(endpoint, error)` recibe el endpoint como está escrito en `docs/api.md`
+(`"POST /api/salas"`, `"DELETE /api/salas/:id"`, …) y lo antepone al error en el log del 500. Solo
+se loguea el 500: los demás status son respuestas esperadas del contrato, no incidentes.
 
 ### Validación
 - **Toda entrada externa se valida con un schema de Zod** definido en `lib/schemas/`. Entrada externa = body de un request, params, query string, formulario, respuesta de una API de terceros.

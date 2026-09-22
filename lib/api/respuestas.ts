@@ -14,7 +14,7 @@ export type CuerpoDeError = {
   detalles?: { campo: string; mensaje: string }[];
 };
 
-export function respuestaDeError(error: unknown): NextResponse<CuerpoDeError> {
+export function respuestaDeError(endpoint: string, error: unknown): NextResponse<CuerpoDeError> {
   if (error instanceof ZodError) {
     return NextResponse.json(
       {
@@ -54,6 +54,10 @@ export function respuestaDeError(error: unknown): NextResponse<CuerpoDeError> {
     return NextResponse.json({ error: error.message }, { status: 409 });
   }
 
-  console.error("Error no contemplado en un endpoint:", error);
+  // Solo el 500 se loguea: los demás son respuestas esperadas del contrato,
+  // no incidentes, y llenar el log con ellas hace que el 500 real se pierda
+  // entre el ruido. El endpoint va adelante para poder ubicarlo en los logs
+  // de Vercel sin tener que adivinar de qué handler salió.
+  console.error(`${endpoint}:`, error);
   return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
 }

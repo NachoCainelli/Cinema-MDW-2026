@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const pelicula = await crearPelicula(datos);
     return NextResponse.json(pelicula, { status: 201 });
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("POST /api/peliculas", error);
   }
 }
 
@@ -37,6 +37,6 @@ export async function GET(request: Request) {
     const peliculas = await listarPeliculas(query);
     return NextResponse.json(peliculas);
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("GET /api/peliculas", error);
   }
 }
