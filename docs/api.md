@@ -29,6 +29,7 @@ Este documento especifica el contrato de la API REST para el sistema Cinema MDW 
 | Método | Ruta | Qué hace | Rol autorizado | Errores (status + motivo) |
 |---|---|---|---|---|
 | `POST` | `/api/peliculas` | Crear película | GESTOR_CARTELERA | **400** clasificación o categoría fuera de la lista, duración inválida<br>**401** sin sesión<br>**403** rol incorrecto |
+| `POST` | `/api/peliculas/imagen` | Subir el póster al bucket de Storage | GESTOR_CARTELERA | **400** falta el archivo, no es JPEG/PNG/WEBP, o supera los 5 MB<br>**401** sin sesión<br>**403** rol incorrecto |
 | `GET` | `/api/peliculas` | Listar películas | GESTOR_CARTELERA | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**401** sin sesión<br>**403** rol incorrecto |
 | `PATCH` | `/api/peliculas/:id` | Editar película | GESTOR_CARTELERA | **400** campo inválido o body sin ningún campo conocido<br>**401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o está fuera de cartelera |
 | `DELETE` | `/api/peliculas/:id` | Sacar de cartelera (H6) | GESTOR_CARTELERA | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o ya estaba dada de baja<br>**409** película con funciones futuras o en curso |
@@ -49,6 +50,13 @@ Esta regla —qué funciones impiden una baja— es una sola implementación, co
 y `lib/db/peliculas.ts` solo consultan las funciones candidatas y delegan el veredicto. El 409 de
 las dos operaciones enumera hasta 5 funciones (título y horario) y la cantidad total, en vez de un
 mensaje genérico que no dice cuáles.
+
+`POST /api/peliculas/imagen` es ruta propia y no un campo de archivo de `POST /api/peliculas`: así
+el gestor puede armar la película sin imagen y completarla después con `PATCH`, y un problema del
+lado de Storage no bloquea el alta de la película en sí (spec, sección 8). Es multipart/form-data,
+no JSON —el único endpoint del contrato que no lo es—, con el archivo en el campo `archivo`.
+Devuelve `{ "imagenUrl": "..." }`, listo para pasarle a `POST`/`PATCH /api/peliculas`. La subida es
+del lado del servidor (`lib/storage.ts`): la `service_role key` de Supabase nunca llega al cliente.
 
 ## Funciones y Cartelera (H3)
 
@@ -128,8 +136,10 @@ aceptación puntual de `docs/spec.md`. Cada mensaje sale tal cual del código �
 
 Quedan afuera de esta tabla los endpoints cuyos errores son enteramente transversales: los `GET` de
 listados y de la cartelera (solo el 400 de `limite`), `GET /api/funciones/:id/butacas` (solo el 404
-genérico) y `PATCH /api/peliculas/:id` (400 de Zod y 404 genérico — no hay una historia de usuario
-de "editar película" en el spec).
+genérico), `PATCH /api/peliculas/:id` (400 de Zod y 404 genérico — no hay una historia de usuario
+de "editar película" en el spec) y `POST /api/peliculas/imagen` (400 de `lib/schemas/imagen.ts` —
+falta el archivo, tipo o tamaño inválido —, mismo caso: la subida de imagen tampoco es una historia
+con criterios numerados, es infraestructura de H6).
 
 | Operación | Situación | Status | Mensaje al usuario | Criterio (spec) |
 |---|---|---|---|---|

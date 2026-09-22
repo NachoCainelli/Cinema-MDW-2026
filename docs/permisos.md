@@ -52,6 +52,7 @@ Dos cosas de esta función definen toda la matriz:
 | `GET /api/salas` | 401 | 403 | 403 | ✅ |
 | `DELETE /api/salas/:id` (H5) | 401 | 403 | 403 | ✅ |
 | `POST /api/peliculas` | 401 | 403 | ✅ | 403 |
+| `POST /api/peliculas/imagen` | 401 | 403 | ✅ | 403 |
 | `GET /api/peliculas` | 401 | 403 | ✅ | 403 |
 | `PATCH /api/peliculas/:id` | 401 | 403 | ✅ | 403 |
 | `DELETE /api/peliculas/:id` (H6) | 401 | 403 | ✅ | 403 |
@@ -61,7 +62,7 @@ Dos cosas de esta función definen toda la matriz:
 | `POST /api/compras` (H4) | 401 | ✅ | 403 | 403 |
 | `GET /api/compras` (historial propio) | 401 | ✅ | 403 | 403 |
 
-13 filas, una por endpoint del contrato de `docs/api.md`; ninguna operación inventada.
+14 filas, una por endpoint del contrato de `docs/api.md`; ninguna operación inventada.
 
 **Nota sobre la columna 404:** no aparece en ninguna celda porque en este contrato el 404 nunca
 depende del rol, depende de si el recurso existe — y una vez que el rol correcto pasa la
