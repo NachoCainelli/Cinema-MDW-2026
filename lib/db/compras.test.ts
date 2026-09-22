@@ -3,13 +3,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ErrorDeConflicto, ErrorDePagoRechazado, ErrorNoEncontrado } from "@/lib/errores";
 
-const { buscarFuncion, buscarButacas, buscarEntradas, crear, buscarCompras, transaccion, cobrar } =
+const {
+  buscarFuncion,
+  buscarButacas,
+  buscarEntradas,
+  crear,
+  buscarCompras,
+  buscarCompra,
+  transaccion,
+  cobrar,
+} =
   vi.hoisted(() => ({
     buscarFuncion: vi.fn(),
     buscarButacas: vi.fn(),
     buscarEntradas: vi.fn(),
     crear: vi.fn(),
     buscarCompras: vi.fn(),
+    buscarCompra: vi.fn(),
     transaccion: vi.fn(),
     cobrar: vi.fn(),
   }));
@@ -19,14 +29,14 @@ vi.mock("@/lib/db/client", () => ({
     funcion: { findUnique: buscarFuncion },
     butaca: { findMany: buscarButacas },
     entrada: { findMany: buscarEntradas },
-    compra: { create: crear, findMany: buscarCompras },
+    compra: { create: crear, findMany: buscarCompras, findFirst: buscarCompra },
     $transaction: transaccion,
   },
 }));
 
 vi.mock("@/lib/pagos", () => ({ PRECIO_ENTRADA: 5000, cobrar }));
 
-const { crearCompra, listarComprasDeUsuario } = await import("./compras");
+const { crearCompra, listarComprasDeUsuario, obtenerCompraDeUsuario } = await import("./compras");
 
 const usuarioId = "usr_1";
 
@@ -170,5 +180,23 @@ describe("listarComprasDeUsuario", () => {
     await listarComprasDeUsuario(usuarioId, { limite: 50 });
 
     expect(buscarCompras.mock.calls[0]?.[0].orderBy).toEqual({ creadaEn: "desc" });
+  });
+});
+
+describe("obtenerCompraDeUsuario", () => {
+  it("busca por id y por dueño en el mismo where: la compra ajena no sale de la base", async () => {
+    buscarCompra.mockResolvedValue(compraCreada);
+
+    await expect(obtenerCompraDeUsuario("com_1", usuarioId)).resolves.toEqual(compraCreada);
+
+    const argumento = buscarCompra.mock.calls[0]?.[0];
+    expect(argumento.where).toEqual({ id: "com_1", usuarioId });
+    expect(argumento.select).toBeDefined();
+  });
+
+  it("devuelve null si no hay una compra con ese id que sea de quien pregunta", async () => {
+    buscarCompra.mockResolvedValue(null);
+
+    await expect(obtenerCompraDeUsuario("com_ajena", usuarioId)).resolves.toBeNull();
   });
 });

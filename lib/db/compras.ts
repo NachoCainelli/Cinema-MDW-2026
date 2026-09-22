@@ -190,3 +190,19 @@ export async function listarComprasDeUsuario(usuarioId: string, { limite }: Hist
     take: limite,
   });
 }
+
+/**
+ * Detalle de una compra del usuario de la sesión (H4, spec sección 6: "un
+ * usuario solo puede ver sus propias compras").
+ *
+ * El id y el dueño van juntos en el mismo `where`, siempre. No es que la
+ * compra ajena se rechace después de leerla: para esta llamada no existe, y el
+ * dato de otra persona nunca sale de la base. Devuelve `null` tanto si el id no
+ * existe como si es de otro, y quien llama no tiene forma de distinguirlos.
+ */
+export async function obtenerCompraDeUsuario(id: string, usuarioId: string) {
+  return prisma.compra.findFirst({
+    where: { id, usuarioId },
+    select: camposDeCompra,
+  });
+}
