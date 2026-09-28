@@ -81,7 +81,31 @@ describe("POST /api/peliculas/imagen", () => {
 
     expect(respuesta.status).toBe(400);
     expect(subir).not.toHaveBeenCalled();
-    expect(autorizar).not.toHaveBeenCalled();
+  });
+
+  it("sin sesión y sin archivo, responde 401 y ni siquiera mira el body", async () => {
+    // La autorización va antes de leer el form-data: alguien sin sesión no
+    // tiene que poder hacer que el servidor parsee un archivo antes de saber
+    // quién es.
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await POST(postRequest("otroNombre", "no-es-el-campo-correcto"));
+
+    expect(respuesta.status).toBe(401);
+    expect(subir).not.toHaveBeenCalled();
+  });
+
+  it("responde 400 si el body no es multipart/form-data", async () => {
+    const respuesta = await POST(
+      new Request("http://localhost/api/peliculas/imagen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archivo: "no-es-un-archivo" }),
+      }),
+    );
+
+    expect(respuesta.status).toBe(400);
+    expect(subir).not.toHaveBeenCalled();
   });
 
   it("responde 400 si el archivo no es un tipo de imagen permitido", async () => {

@@ -121,7 +121,7 @@ fila en el catálogo de abajo; el catálogo solo lista lo que cada operación ag
 | Situación | Status | Mensaje al usuario | Nota |
 |---|---|---|---|
 | El body o la query no pasan algún schema de Zod (campo faltante, fuera de rango, formato inválido, etc.) | 400 | "Los datos enviados no son válidos" | Viene con `detalles`, un `{ campo, mensaje }` por cada regla de Zod que falló. Es el único caso con `detalles` en el cuerpo. |
-| El body no es JSON válido (vacío o mal formado) | 400 | "El cuerpo del request no es JSON válido" | `request.json()` lanza `SyntaxError` antes de llegar al schema; es un error de quien llama, no un 500. |
+| El body no tiene el formato que el endpoint espera: JSON vacío o mal formado, o —en `POST /api/peliculas/imagen`— un `Content-Type` que no es `multipart/form-data` | 400 | "El cuerpo del request no tiene el formato que este endpoint espera" | `request.json()` lanza `SyntaxError` si el JSON es inválido; `request.formData()` lanza `TypeError` si el `Content-Type` no es multipart, y el endpoint lo traduce al mismo `SyntaxError`. Los dos son un error de quien llama, no un 500. |
 | No hay sesión iniciada en una ruta que la requiere | 401 | "Necesitás iniciar sesión" | `requerirUsuario()`, `lib/auth.ts`. |
 | Hay sesión, pero el rol no es el que la ruta exige | 403 | "No tenés permiso para hacer esto" | `requerirUsuario(rol)`, mismo origen que el 401. |
 | El recurso de `:id` no existe, o existe pero no pertenece a quien pregunta | 404 | Mensaje propio de cada entidad (p. ej. "No se encontró la sala con id `<id>`") | Un recurso ajeno responde exactamente lo mismo que uno inexistente — nunca 403 — para que no se puedan confirmar ids probando de a uno (ver "Reglas generales de error" al principio de este documento). |

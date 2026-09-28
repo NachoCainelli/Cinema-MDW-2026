@@ -20,12 +20,27 @@ import { subirImagen } from "@/lib/storage";
  */
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
-    const archivo = imagenSchema.parse(formData.get("archivo")); // 400
     await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
+    const formData = await formDataDelRequest(request); // 400
+    const archivo = imagenSchema.parse(formData.get("archivo")); // 400
     const imagenUrl = await subirImagen(archivo);
     return NextResponse.json({ imagenUrl }, { status: 201 });
   } catch (error) {
     return respuestaDeError(error);
+  }
+}
+
+/**
+ * `request.formData()` tira un `TypeError` si el `Content-Type` no es
+ * `multipart/form-data` (o `application/x-www-form-urlencoded`) — no un
+ * `SyntaxError` como `request.json()`. Se traduce acá al mismo `SyntaxError`
+ * que ya traduce `respuestaDeError`: es el mismo caso, un body que no tiene el
+ * formato que este endpoint espera, error de quien llama y no del servidor.
+ */
+async function formDataDelRequest(request: Request): Promise<FormData> {
+  try {
+    return await request.formData();
+  } catch {
+    throw new SyntaxError("El cuerpo del request no es multipart/form-data");
   }
 }
