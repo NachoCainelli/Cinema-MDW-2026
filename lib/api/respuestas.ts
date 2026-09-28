@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import {
   ErrorDeConflicto,
   ErrorDePagoRechazado,
+  ErrorDeServicioExterno,
   ErrorNoAutenticado,
   ErrorNoAutorizado,
   ErrorNoEncontrado,
@@ -57,6 +58,10 @@ export function respuestaDeError(error: unknown): NextResponse<CuerpoDeError> {
 
   if (error instanceof ErrorDeConflicto) {
     return NextResponse.json({ error: error.message }, { status: 409 });
+  }
+
+  if (error instanceof ErrorDeServicioExterno) {
+    return NextResponse.json({ error: error.message }, { status: 502 });
   }
 
   console.error("Error no contemplado en un endpoint:", error);

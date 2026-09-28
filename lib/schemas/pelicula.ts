@@ -45,9 +45,10 @@ export const crearPeliculaSchema = z.object({
   clasificacion: clasificacionSchema,
   categoria: categoriaSchema,
   // URL pública del póster en el bucket de Supabase Storage. La sube antes
-  // `POST /api/peliculas/imagen` (lib/storage.ts); acá solo se valida que sea
-  // una URL. Opcional: si Storage falla o el gestor no cargó imagen todavía,
-  // la película se puede crear sin ella y completarla después con PATCH.
+  // `POST /api/peliculas/imagen` (lib/servicios/storage.ts); acá solo se
+  // valida que sea una URL. Opcional: si Storage falla o el gestor no cargó
+  // imagen todavía, la película se puede crear sin ella y completarla después
+  // con PATCH.
   imagenUrl: z.string().trim().url("La imagen tiene que ser una URL válida").optional(),
 });
 export type CrearPeliculaInput = z.infer<typeof crearPeliculaSchema>;

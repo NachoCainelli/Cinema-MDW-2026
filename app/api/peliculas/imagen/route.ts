@@ -2,8 +2,9 @@ import { NextResponse } from "next/server";
 
 import { respuestaDeError } from "@/lib/api/respuestas";
 import { requerirUsuario } from "@/lib/auth";
+import { ErrorDeServicioExterno } from "@/lib/errores";
 import { imagenSchema } from "@/lib/schemas/imagen";
-import { subirImagen } from "@/lib/storage";
+import { subirImagen } from "@/lib/servicios/storage";
 
 /**
  * POST /api/peliculas/imagen — sube el póster de una película al bucket
@@ -17,6 +18,10 @@ import { subirImagen } from "@/lib/storage";
  * multipart/form-data, no JSON: el body de `POST /api/peliculas` es JSON, así
  * que este es el único endpoint del contrato que no lo es. El campo del
  * archivo se llama `archivo`.
+ *
+ * Acá Storage es esencial, al revés que en la creación de la película: sin
+ * imagen que subir este endpoint no tiene razón de ser, así que un `null` de
+ * `subirImagen` es un 502, no una respuesta exitosa con `imagenUrl: null`.
  */
 export async function POST(request: Request) {
   try {
@@ -24,6 +29,9 @@ export async function POST(request: Request) {
     const formData = await formDataDelRequest(request); // 400
     const archivo = imagenSchema.parse(formData.get("archivo")); // 400
     const imagenUrl = await subirImagen(archivo);
+    if (!imagenUrl) {
+      throw new ErrorDeServicioExterno("No pudimos subir la imagen. Probá de nuevo en unos minutos");
+    }
     return NextResponse.json({ imagenUrl }, { status: 201 });
   } catch (error) {
     return respuestaDeError(error);

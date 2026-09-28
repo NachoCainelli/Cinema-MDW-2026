@@ -29,7 +29,7 @@ Este documento especifica el contrato de la API REST para el sistema Cinema MDW 
 | Método | Ruta | Qué hace | Rol autorizado | Errores (status + motivo) |
 |---|---|---|---|---|
 | `POST` | `/api/peliculas` | Crear película | GESTOR_CARTELERA | **400** clasificación o categoría fuera de la lista, duración inválida<br>**401** sin sesión<br>**403** rol incorrecto |
-| `POST` | `/api/peliculas/imagen` | Subir el póster al bucket de Storage | GESTOR_CARTELERA | **400** falta el archivo, no es JPEG/PNG/WEBP, o supera los 5 MB<br>**401** sin sesión<br>**403** rol incorrecto |
+| `POST` | `/api/peliculas/imagen` | Subir el póster al bucket de Storage | GESTOR_CARTELERA | **400** falta el archivo, no es JPEG/PNG/WEBP, supera los 5 MB, o el body no es multipart/form-data<br>**401** sin sesión<br>**403** rol incorrecto<br>**502** Supabase Storage no respondió o rechazó la subida |
 | `GET` | `/api/peliculas` | Listar películas | GESTOR_CARTELERA | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**401** sin sesión<br>**403** rol incorrecto |
 | `PATCH` | `/api/peliculas/:id` | Editar película | GESTOR_CARTELERA | **400** campo inválido o body sin ningún campo conocido<br>**401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o está fuera de cartelera |
 | `DELETE` | `/api/peliculas/:id` | Sacar de cartelera (H6) | GESTOR_CARTELERA | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o ya estaba dada de baja<br>**409** película con funciones futuras o en curso |
@@ -56,7 +56,13 @@ el gestor puede armar la película sin imagen y completarla después con `PATCH`
 lado de Storage no bloquea el alta de la película en sí (spec, sección 8). Es multipart/form-data,
 no JSON —el único endpoint del contrato que no lo es—, con el archivo en el campo `archivo`.
 Devuelve `{ "imagenUrl": "..." }`, listo para pasarle a `POST`/`PATCH /api/peliculas`. La subida es
-del lado del servidor (`lib/storage.ts`): la `service_role key` de Supabase nunca llega al cliente.
+del lado del servidor (`lib/servicios/storage.ts`): la `service_role key` de Supabase nunca llega
+al cliente, y ningún otro módulo la lee.
+
+Storage es accesorio para `POST`/`PATCH /api/peliculas` —se crean con o sin `imagenUrl`— pero es
+esencial para este endpoint: subir una imagen sin poder llegar a Storage no tiene sentido. Por eso
+`subirImagen` nunca lanza —devuelve `null` si Storage no respondió a tiempo, rechazó la subida, o
+falta la configuración— y es este endpoint el que decide qué hacer con ese `null`: acá, **502**.
 
 ## Funciones y Cartelera (H3)
 
