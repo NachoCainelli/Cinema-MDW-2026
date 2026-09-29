@@ -9,12 +9,15 @@ import { crearPeliculaSchema, peliculasQuerySchema } from "@/lib/schemas/pelicul
  * POST /api/peliculas — alta de una película (H6).
  *
  * La clasificación y la categoría son listas cerradas en el schema, así que un
- * valor fuera de la lista no llega nunca a la base: lo frena el 400.
+ * valor fuera de la lista no llega nunca a la base: lo frena el 400. La
+ * sesión se verifica antes de leer y validar el body (ver AGENTS.md): no hace
+ * falta saber si los datos son válidos para saber si hay que rechazar la
+ * request por falta de sesión o de rol.
  */
 export async function POST(request: Request) {
   try {
-    const datos = crearPeliculaSchema.parse(await request.json()); // 400
     await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
+    const datos = crearPeliculaSchema.parse(await request.json()); // 400
     const pelicula = await crearPelicula(datos);
     return NextResponse.json(pelicula, { status: 201 });
   } catch (error) {
@@ -31,9 +34,9 @@ export async function POST(request: Request) {
  */
 export async function GET(request: Request) {
   try {
+    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const { searchParams } = new URL(request.url);
     const query = peliculasQuerySchema.parse(Object.fromEntries(searchParams)); // 400
-    await requerirUsuario("GESTOR_CARTELERA"); // 401 / 403
     const peliculas = await listarPeliculas(query);
     return NextResponse.json(peliculas);
   } catch (error) {

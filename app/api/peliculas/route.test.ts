@@ -80,6 +80,15 @@ describe("POST /api/peliculas", () => {
     expect(crear).not.toHaveBeenCalled();
   });
 
+  it("responde 401 sin sesión aunque el body también sea inválido: la sesión se revisa primero", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await POST(postRequest({ ...bodyValido, clasificacion: "R" }));
+
+    expect(respuesta.status).toBe(401);
+    expect(crear).not.toHaveBeenCalled();
+  });
+
   it("responde 400 si la clasificación está fuera de la lista cerrada", async () => {
     const respuesta = await POST(postRequest({ ...bodyValido, clasificacion: "R" }));
 
@@ -140,6 +149,15 @@ describe("GET /api/peliculas", () => {
     autorizar.mockRejectedValue(new ErrorNoAutenticado());
 
     const respuesta = await GET(getRequest());
+
+    expect(respuesta.status).toBe(401);
+    expect(listar).not.toHaveBeenCalled();
+  });
+
+  it("responde 401 sin sesión aunque el límite también sea inválido: la sesión se revisa primero", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await GET(getRequest("?limite=999"));
 
     expect(respuesta.status).toBe(401);
     expect(listar).not.toHaveBeenCalled();

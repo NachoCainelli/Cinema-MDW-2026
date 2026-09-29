@@ -9,9 +9,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requerirUsuario("ADMINISTRADOR"); // 401 / 403
     const { id } = await params;
     const salaId = salaIdSchema.parse(id); // 400
-    await requerirUsuario("ADMINISTRADOR"); // 401 / 403
     await eliminarSalaLogico(salaId); // 404 / 409
     return new NextResponse(null, { status: 204 });
   } catch (error) {
