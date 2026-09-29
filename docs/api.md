@@ -8,6 +8,17 @@ Este documento especifica el contrato de la API REST para el sistema Cinema MDW 
 - **404 Not Found:** cuando el recurso solicitado por `:id` no existe, o si no pertenece al usuario que lo solicita.
 - **409 Conflict:** cuando la operación genera un conflicto de estado o rompe una regla de negocio.
 
+En una ruta protegida, estas verificaciones corren en este orden: sesión (401) → rol (403) →
+validación del body/query (400) → regla de negocio (404/409). La autorización va antes que la
+validación de datos —no depende de ellos—, así que una request sin sesión o con el rol equivocado
+corta ahí, sin importar si el body que mandó era válido o no (ver `AGENTS.md`, sección "Capa API",
+para el razonamiento completo). La única excepción real es `PATCH /api/peliculas/:id`: ahí "existe
+y está en cartelera" y "aplicar el cambio" son una sola escritura a la base, así que su 404 sigue
+saliendo después del 400 del body. Los `DELETE` de baja lógica (`/api/salas/:id`,
+`/api/peliculas/:id`) no tienen esa excepción —ni falta que hace—: no tienen body que validar, así
+que su 404 no compite con ningún 400, solo con el 400 del id de la ruta, que se valida antes de
+delegar a `lib/db/`.
+
 ---
 
 ## Usuarios (H1)
@@ -76,12 +87,18 @@ La cartelera pública devuelve solo funciones **futuras**, de salas no eliminada
 cartelera. En `/api/funciones/:id/butacas`, `ocupada` es un valor **calculado**: hay una Entrada de
 una Compra `PAGADA` para esa butaca en esa función. No es un atributo de Butaca.
 
+Los dos endpoints públicos de esta sección usan un `select` propio (`camposDeFuncionPublicos` en
+`lib/db/funciones.ts`), distinto del que recibe el gestor al crear la función. Aunque hoy
+coincidan campo por campo, son dos decisiones separadas: agregar un campo para la respuesta del
+gestor no lo publica acá automáticamente.
+
 ## Compras y Flujo Principal (H4)
 
 | Método | Ruta | Qué hace | Rol autorizado | Errores (status + motivo) |
 |---|---|---|---|---|
 | `POST` | `/api/compras` | Comprar entradas (H4) | USUARIO | **400** sin butacas seleccionadas<br>**401** sin sesión<br>**402** pago rechazado (la compra no se persiste)<br>**403** rol incorrecto<br>**404** función inexistente<br>**409** butaca ya vendida para esa función<br>**409** butaca que no pertenece a la sala de esa función<br>**409** función ya empezada |
 | `GET` | `/api/compras` | Historial de compras | USUARIO | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**401** sin sesión<br>**403** rol incorrecto |
+| `GET` | `/api/compras/:id` | Ver una compra propia, con sus entradas | USUARIO | **401** sin sesión<br>**403** rol incorrecto<br>**404** la compra no existe o es de otro usuario |
 
 La compra es la operación del flujo principal, por eso tiene ruta propia con sustantivo y no es el
 alta de un CRUD. No hay reserva temporal: la disponibilidad se valida recién al confirmar, y la
@@ -95,6 +112,15 @@ El pago es simulado (`lib/pagos.ts`): resuelve al instante, así que no existe e
 El `usuarioId` sale siempre de la sesión: el del body y el de la query string se ignoran. Por eso
 `GET /api/compras` devuelve solo las compras propias y no hace falta un 404 por compra ajena. El
 historial muestra las funciones pasadas aunque la sala esté eliminada o la película dada de baja.
+`listarComprasDeUsuario` filtra por `usuarioId` en el `where` de la consulta, no con un chequeo
+aparte sobre el resultado (ver `AGENTS.md`, sección "Datos").
+
+`GET /api/compras/:id` sí recibe un id de afuera, y ahí aparece el 404 por compra ajena. La consulta
+(`obtenerCompraDeUsuario`, `lib/db/compras.ts`) lleva el id y el `usuarioId` de la sesión **juntos
+en el mismo `where`**: la compra de otro no se lee y se rechaza después, directamente no existe para
+esa llamada, y el dato ajeno nunca sale de la base. Por eso la compra inexistente y la ajena
+responden exactamente lo mismo —404 con el mismo cuerpo—: si la ajena respondiera 403, se podría
+averiguar qué ids de compra existen probando de a uno. Devuelve los mismos campos que el historial.
 
 ---
 
@@ -126,9 +152,9 @@ fila en el catálogo de abajo; el catálogo solo lista lo que cada operación ag
 
 | Situación | Status | Mensaje al usuario | Nota |
 |---|---|---|---|
-| El body o la query no pasan algún schema de Zod (campo faltante, fuera de rango, formato inválido, etc.) | 400 | "Los datos enviados no son válidos" | Viene con `detalles`, un `{ campo, mensaje }` por cada regla de Zod que falló. Es el único caso con `detalles` en el cuerpo. |
-| El body no tiene el formato que el endpoint espera: JSON vacío o mal formado, o —en `POST /api/peliculas/imagen`— un `Content-Type` que no es `multipart/form-data` | 400 | "El cuerpo del request no tiene el formato que este endpoint espera" | `request.json()` lanza `SyntaxError` si el JSON es inválido; `request.formData()` lanza `TypeError` si el `Content-Type` no es multipart, y el endpoint lo traduce al mismo `SyntaxError`. Los dos son un error de quien llama, no un 500. |
-| No hay sesión iniciada en una ruta que la requiere | 401 | "Necesitás iniciar sesión" | `requerirUsuario()`, `lib/auth.ts`. |
+| El body o la query no pasan algún schema de Zod (campo faltante, fuera de rango, formato inválido, etc.) | 400 | "Los datos enviados no son válidos" | Viene con `detalles`, un `{ campo, mensaje }` por cada regla de Zod que falló. Es el único caso con `detalles` en el cuerpo. En una ruta protegida corre después de la sesión y el rol: sin sesión, un body inválido responde 401, no 400 (ver "Reglas generales de error" al principio de este documento). |
+| El body no tiene el formato que el endpoint espera: JSON vacío o mal formado, o —en `POST /api/peliculas/imagen`— un `Content-Type` que no es `multipart/form-data` | 400 | "El cuerpo del request no tiene el formato que este endpoint espera" | `request.json()` lanza `SyntaxError` si el JSON es inválido; `request.formData()` lanza `TypeError` si el `Content-Type` no es multipart, y el endpoint lo traduce al mismo `SyntaxError`. Los dos son un error de quien llama, no un 500. En una ruta protegida, igual que el 400 de Zod: si no hay sesión, la respuesta es 401, porque la sesión se verifica antes de intentar leer el body. |
+| No hay sesión iniciada en una ruta que la requiere | 401 | "Necesitás iniciar sesión" | `requerirUsuario()`, `lib/auth.ts`. Es la primera verificación de cada handler protegido, antes de validar nada del request. |
 | Hay sesión, pero el rol no es el que la ruta exige | 403 | "No tenés permiso para hacer esto" | `requerirUsuario(rol)`, mismo origen que el 401. |
 | El recurso de `:id` no existe, o existe pero no pertenece a quien pregunta | 404 | Mensaje propio de cada entidad (p. ej. "No se encontró la sala con id `<id>`") | Un recurso ajeno responde exactamente lo mismo que uno inexistente — nunca 403 — para que no se puedan confirmar ids probando de a uno (ver "Reglas generales de error" al principio de este documento). |
 | El pago simulado no se aprueba (`POST /api/compras`) | 402 | El motivo que devuelve `lib/pagos.ts`, p. ej. "El pago fue rechazado por la entidad emisora" | Es 402 y no 409: no hay nada en la base que reintentar cambie — con otro medio de pago la misma compra sale bien. Solo lo dispara este endpoint, pero comparte el mecanismo de esta tabla: mensaje fijo, sin `detalles`. |
@@ -164,6 +190,7 @@ con criterios numerados, es infraestructura de H6).
 | `POST /api/compras` | No se seleccionó ninguna butaca | 400 | "Tenés que seleccionar al menos una butaca" | H4, criterio 4 |
 | `POST /api/compras` | El pago simulado es rechazado | 402 | El motivo de `lib/pagos.ts` (p. ej. "El pago fue rechazado por la entidad emisora") | H4, criterio 3 |
 | `POST /api/compras` | Una o más butacas ya fueron vendidas para esa función (chequeo previo, o carrera resuelta por el índice único) | 409 | "Una de las butacas que elegiste ya fue vendida para esta función. No se te cobró nada" (o la variante en plural, "`<n>` de las butacas...") | H4, criterio 2 |
+| `GET /api/compras/:id` | La compra no existe, o existe pero es de otro usuario (las dos responden igual) | 404 | "No se encontró la compra con id `<id>`" | Spec, sección 6: "Un usuario solo puede ver sus propias compras" |
 
 \* H3 no tiene un criterio propio para este caso; se cita H5 porque es ahí donde el spec lo dice
 explícitamente: una sala eliminada "no aparece para programar funciones nuevas" (H5, criterio 1) y

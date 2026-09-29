@@ -13,7 +13,9 @@
  *
  * El catálogo de películas vive en `prisma/data/peliculas.ts`.
  *
- * Usuarios: uno por rol, todos con la contraseña de SEED_PASSWORD, hasheada
+ * Usuarios: uno por rol, más un segundo USUARIO (el "usuario B" de
+ * docs/api.http, para probar que no ve las compras de otro), todos con la
+ * contraseña de SEED_PASSWORD, hasheada
  * con `lib/password.ts` para que se pueda entrar por Credentials. No tiene
  * valor por defecto a propósito: una contraseña escrita en el repo es pública,
  * y si esta base es la misma que usa producción, cualquiera entraría como
@@ -87,6 +89,11 @@ async function main() {
     {
       email: "usuario@ejemplo.com",
       nombre: "Usuario de ejemplo",
+      rol: Rol.USUARIO,
+    },
+    {
+      email: "usuario.b@ejemplo.com",
+      nombre: "Otro usuario de ejemplo",
       rol: Rol.USUARIO,
     },
   ];

@@ -31,7 +31,55 @@ const MAXIMO_FUNCIONES_A_REVISAR = 100;
 /** Tope de butacas de una sala: `crearSalaSchema` no admite más de 30x30. */
 const MAXIMO_BUTACAS_POR_SALA = 900;
 
-const camposDeFuncion = {
+/**
+ * Campos que devuelve `crearFuncion` al gestor que acaba de publicar la
+ * función (POST /api/funciones, protegido con GESTOR_CARTELERA).
+ *
+ * A propósito NO es el mismo objeto que `camposDeFuncionPublicos`, aunque hoy
+ * tengan los mismos campos: son dos audiencias distintas (un gestor
+ * autenticado vs. cualquiera en internet) y dos decisiones distintas, aunque
+ * coincidan por ahora. Si el día de mañana el gestor necesita ver acá un dato
+ * más (por ejemplo algo interno de programación), agregarlo en este `select`
+ * no tiene que implicar publicarlo también en la cartelera — y si compartieran
+ * el mismo objeto, lo publicaría sin que nadie lo decidiera.
+ */
+const camposDeFuncionParaGestor = {
+  id: true,
+  inicio: true,
+  pelicula: {
+    select: {
+      id: true,
+      titulo: true,
+      duracionMinutos: true,
+      clasificacion: true,
+      categoria: true,
+      imagenUrl: true,
+    },
+  },
+  sala: { select: { id: true, nombre: true } },
+} as const;
+
+/**
+ * Campos públicos de una función: lo que ve cualquiera, sin sesión, en la
+ * cartelera (`listarCartelera`) y en el detalle de butacas
+ * (`listarButacasDeFuncion`). Es la respuesta a la pregunta "¿qué se puede
+ * ver sin sesión?", campo por campo:
+ * - `id`, `inicio`: hacen falta para armar el link a la función y para
+ *   ordenar/mostrar el horario. Sin dato sensible.
+ * - `pelicula.titulo`, `duracionMinutos`, `clasificacion`, `categoria`,
+ *   `imagenUrl`: es la tarjeta de la película en la cartelera — exactamente
+ *   lo que un cine publica en su vidriera. `pelicula.id` hace falta para
+ *   pedir después el detalle de esa película si hiciera falta.
+ * - `sala.id`, `sala.nombre`: para mostrar en qué sala es. Filas y columnas
+ *   de la sala NO se incluyen: no aportan nada a alguien mirando la
+ *   cartelera, y la capacidad ya se puede inferir de sobra por la cantidad de
+ *   butacas que devuelve `listarButacasDeFuncion`.
+ * No hay ningún dato de gestión (quién la creó, cuándo, notas internas) ni de
+ * negocio (recaudación, etc.): esta entidad no los tiene, pero si algún día
+ * los tuviera, tendrían que agregarse en `camposDeFuncionParaGestor`, nunca
+ * acá, sin pasar antes por esta lista.
+ */
+const camposDeFuncionPublicos = {
   id: true,
   inicio: true,
   pelicula: {
@@ -138,7 +186,7 @@ export async function crearFuncion(datos: CrearFuncionInput) {
 
   return prisma.funcion.create({
     data: { inicio: datos.inicio, peliculaId: pelicula.id, salaId: sala.id },
-    select: camposDeFuncion,
+    select: camposDeFuncionParaGestor,
   });
 }
 
@@ -146,7 +194,8 @@ export async function crearFuncion(datos: CrearFuncionInput) {
  * Cartelera pública: solo lo que alguien puede ir a ver hoy. Quedan afuera las
  * funciones que ya empezaron, las de salas eliminadas y las de películas dadas
  * de baja —las tres siguen existiendo para el historial (H5 y H6), pero no se
- * publican.
+ * publican. Usa `camposDeFuncionPublicos`, no el que ve el gestor: ver el
+ * comentario de esa constante.
  */
 export async function listarCartelera({ limite }: CarteleraQuery) {
   return prisma.funcion.findMany({
@@ -155,7 +204,7 @@ export async function listarCartelera({ limite }: CarteleraQuery) {
       sala: { eliminadaEn: null },
       pelicula: { bajaEn: null },
     },
-    select: camposDeFuncion,
+    select: camposDeFuncionPublicos,
     orderBy: { inicio: "asc" },
     take: limite,
   });
@@ -167,12 +216,13 @@ export async function listarCartelera({ limite }: CarteleraQuery) {
  * Libre u ocupada no es un atributo de Butaca (sección 3 del spec): se calcula
  * mirando si hay una Entrada de una Compra `PAGADA` para esa butaca en esa
  * función. La misma butaca puede estar ocupada en una función y libre en la
- * siguiente.
+ * siguiente. Endpoint público: la función que se devuelve acá usa
+ * `camposDeFuncionPublicos`, igual que la cartelera.
  */
 export async function listarButacasDeFuncion(funcionId: string) {
   const funcion = await prisma.funcion.findUnique({
     where: { id: funcionId },
-    select: camposDeFuncion,
+    select: camposDeFuncionPublicos,
   });
   if (!funcion) throw new ErrorNoEncontrado("No existe la función indicada");
 
