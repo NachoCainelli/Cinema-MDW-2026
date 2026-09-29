@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ErrorDeConflicto, ErrorNoAutorizado, ErrorNoEncontrado } from "@/lib/errores";
+import { ErrorDeConflicto, ErrorNoAutenticado, ErrorNoAutorizado, ErrorNoEncontrado } from "@/lib/errores";
 
 vi.mock("@/lib/auth", () => ({ requerirUsuario: vi.fn() }));
 vi.mock("@/lib/db/funciones", () => ({ crearFuncion: vi.fn(), listarCartelera: vi.fn() }));
@@ -56,12 +56,30 @@ describe("POST /api/funciones", () => {
     expect(autorizar).toHaveBeenCalledWith("GESTOR_CARTELERA");
   });
 
+  it("responde 401 sin sesión, sin tocar la base", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await POST(postRequest(bodyValido));
+
+    expect(respuesta.status).toBe(401);
+    expect(crear).not.toHaveBeenCalled();
+  });
+
   it("responde 403 si el rol no corresponde, sin tocar la base", async () => {
     autorizar.mockRejectedValue(new ErrorNoAutorizado());
 
     const respuesta = await POST(postRequest(bodyValido));
 
     expect(respuesta.status).toBe(403);
+    expect(crear).not.toHaveBeenCalled();
+  });
+
+  it("responde 401 sin sesión aunque la función arranque en el pasado: la sesión se revisa primero", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await POST(postRequest({ ...bodyValido, inicio: enHoras(-2) }));
+
+    expect(respuesta.status).toBe(401);
     expect(crear).not.toHaveBeenCalled();
   });
 

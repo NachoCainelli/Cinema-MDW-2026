@@ -44,3 +44,5 @@ export const historialQuerySchema = z.object({
     .default(50),
 });
 export type HistorialQuery = z.infer<typeof historialQuerySchema>;
+
+export const compraIdSchema = z.string().min(1, "Falta el id de la compra");
