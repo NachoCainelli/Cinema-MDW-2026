@@ -98,7 +98,12 @@ describe("respuestaDeError", () => {
 
   it("no loguea nada para los errores de negocio esperados: solo el 500 es incidente", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const schema = z.object({ nombre: z.string().min(1, "Falta el nombre") });
+    const resultado = schema.safeParse({ nombre: "" });
+    if (resultado.success) throw new Error("el schema tendría que haber fallado");
 
+    respuestaDeError(endpoint, resultado.error);
+    respuestaDeError(endpoint, new SyntaxError("Unexpected end of JSON input"));
     respuestaDeError(endpoint, new ErrorDeConflicto("La butaca ya está vendida"));
     respuestaDeError(endpoint, new ErrorNoEncontrado("No existe esa sala"));
     respuestaDeError(endpoint, new ErrorNoAutenticado());

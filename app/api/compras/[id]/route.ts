@@ -20,6 +20,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const compra = await obtenerCompraDeUsuario(compraId, usuario.id); // 404
     return NextResponse.json(compra);
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("GET /api/compras/:id", error);
   }
 }
