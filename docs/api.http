@@ -559,6 +559,78 @@ DELETE {{baseUrl}}/api/peliculas/id_que_no_existe
 DELETE {{baseUrl}}/api/peliculas/{{peliculaDelFlujo.response.body.$.id}}
 Cookie: {{cookieUsuario}}
 
+# ── H6 · POST /api/peliculas/imagen (GESTOR_CARTELERA) ───────────────────────
+# Sube el póster a Supabase Storage (bucket `posters`) y devuelve su URL. Es el
+# único endpoint del contrato con body multipart/form-data; el archivo va en el
+# campo `archivo` y sale de docs/fixtures/poster.png.
+#
+# Los dos casos de "Storage caído" mandan el MISMO request que la subida OK: lo
+# que cambia es la configuración del servidor, no el body. Se rompe a propósito
+# (en `.env.local` y reiniciando `pnpm dev`, o en Vercel → Settings →
+# Environment Variables y redeploy) y al terminar se deja la configuración
+# buena de nuevo.
+
+### H6 · Subir el póster → 201 con `{ "imagenUrl": "https://…/posters/…" }`
+# La URL es pública: abrirla en el navegador muestra la imagen.
+POST {{baseUrl}}/api/peliculas/imagen
+Cookie: {{cookieGestor}}
+Content-Type: multipart/form-data; boundary=----BordePoster
+
+------BordePoster
+Content-Disposition: form-data; name="archivo"; filename="poster.png"
+Content-Type: image/png
+
+< ./fixtures/poster.png
+------BordePoster--
+
+### H6 · Subir el póster con Storage caído (key rota) → 502 "No pudimos subir la imagen. Probá de nuevo en unos minutos"
+# Solo con una letra cambiada en SUPABASE_SERVICE_ROLE_KEY; con la key buena
+# responde 201. Supabase rechaza la subida, `subirImagen` devuelve `null` y el
+# endpoint responde 502. El detalle queda en el log del servidor (en Vercel →
+# Logs), como "storage: no se pudo subir la imagen", no en la respuesta.
+POST {{baseUrl}}/api/peliculas/imagen
+Cookie: {{cookieGestor}}
+Content-Type: multipart/form-data; boundary=----BordePoster
+
+------BordePoster
+Content-Disposition: form-data; name="archivo"; filename="poster.png"
+Content-Type: image/png
+
+< ./fixtures/poster.png
+------BordePoster--
+
+### H6 · Subir el póster con Storage que no responde (timeout) → 502 a los ~5 segundos
+# Solo con SUPABASE_URL=https://10.255.255.1 (una IP que no contesta). El
+# `fetch` a Storage corta por `AbortSignal.timeout(5_000)`: si el request tarda
+# mucho más de 5 s o queda colgado, el timeout no está funcionando.
+POST {{baseUrl}}/api/peliculas/imagen
+Cookie: {{cookieGestor}}
+Content-Type: multipart/form-data; boundary=----BordePoster
+
+------BordePoster
+Content-Disposition: form-data; name="archivo"; filename="poster.png"
+Content-Type: image/png
+
+< ./fixtures/poster.png
+------BordePoster--
+
+### H6 · Crear película sin imagen con Storage caído → 201 igual
+# Correrlo con la configuración rota de los dos bloques de arriba: Storage es
+# accesorio para la película, que se crea con o sin `imagenUrl`, y
+# `POST /api/peliculas` nunca llama a Storage. La película queda completa (con
+# `imagenUrl: null`) y se le puede agregar el póster después con PATCH.
+POST {{baseUrl}}/api/peliculas
+Content-Type: application/json
+Cookie: {{cookieGestor}}
+
+{
+  "titulo": "Película sin póster {{$timestamp}}",
+  "sinopsis": "Creada con Storage caído para mostrar que el alta no depende de él.",
+  "duracionMinutos": 95,
+  "clasificacion": "ATP",
+  "categoria": "COMEDIA"
+}
+
 # ── H3 · POST /api/funciones (GESTOR_CARTELERA) ──────────────────────────────
 # El caso de éxito es el paso 1 del flujo.
 
