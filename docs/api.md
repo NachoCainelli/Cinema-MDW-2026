@@ -40,6 +40,7 @@ delegar a `lib/db/`.
 | Método | Ruta | Qué hace | Rol autorizado | Errores (status + motivo) |
 |---|---|---|---|---|
 | `POST` | `/api/peliculas` | Crear película | GESTOR_CARTELERA | **400** clasificación o categoría fuera de la lista, duración inválida<br>**401** sin sesión<br>**403** rol incorrecto |
+| `POST` | `/api/peliculas/imagen` | Subir el póster al bucket de Storage | GESTOR_CARTELERA | **400** falta el archivo, no es JPEG/PNG/WEBP, o supera los 5 MB<br>**401** sin sesión<br>**403** rol incorrecto |
 | `GET` | `/api/peliculas` | Listar películas | GESTOR_CARTELERA | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**401** sin sesión<br>**403** rol incorrecto |
 | `PATCH` | `/api/peliculas/:id` | Editar película | GESTOR_CARTELERA | **400** campo inválido o body sin ningún campo conocido<br>**401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o está fuera de cartelera |
 | `DELETE` | `/api/peliculas/:id` | Sacar de cartelera (H6) | GESTOR_CARTELERA | **401** sin sesión<br>**403** rol incorrecto<br>**404** no existe o ya estaba dada de baja<br>**409** película con funciones futuras o en curso |
@@ -60,6 +61,13 @@ Esta regla —qué funciones impiden una baja— es una sola implementación, co
 y `lib/db/peliculas.ts` solo consultan las funciones candidatas y delegan el veredicto. El 409 de
 las dos operaciones enumera hasta 5 funciones (título y horario) y la cantidad total, en vez de un
 mensaje genérico que no dice cuáles.
+
+`POST /api/peliculas/imagen` es ruta propia y no un campo de archivo de `POST /api/peliculas`: así
+el gestor puede armar la película sin imagen y completarla después con `PATCH`, y un problema del
+lado de Storage no bloquea el alta de la película en sí (spec, sección 8). Es multipart/form-data,
+no JSON —el único endpoint del contrato que no lo es—, con el archivo en el campo `archivo`.
+Devuelve `{ "imagenUrl": "..." }`, listo para pasarle a `POST`/`PATCH /api/peliculas`. La subida es
+del lado del servidor (`lib/storage.ts`): la `service_role key` de Supabase nunca llega al cliente.
 
 ## Funciones y Cartelera (H3)
 
@@ -139,7 +147,7 @@ fila en el catálogo de abajo; el catálogo solo lista lo que cada operación ag
 | Situación | Status | Mensaje al usuario | Nota |
 |---|---|---|---|
 | El body o la query no pasan algún schema de Zod (campo faltante, fuera de rango, formato inválido, etc.) | 400 | "Los datos enviados no son válidos" | Viene con `detalles`, un `{ campo, mensaje }` por cada regla de Zod que falló. Es el único caso con `detalles` en el cuerpo. En una ruta protegida corre después de la sesión y el rol: sin sesión, un body inválido responde 401, no 400 (ver "Reglas generales de error" al principio de este documento). |
-| El body no es JSON válido (vacío o mal formado) | 400 | "El cuerpo del request no es JSON válido" | `request.json()` lanza `SyntaxError` antes de llegar al schema; es un error de quien llama, no un 500. En una ruta protegida, igual que el 400 de Zod: si no hay sesión, la respuesta es 401, porque la sesión se verifica antes de intentar leer el body. |
+| El body no tiene el formato que el endpoint espera: JSON vacío o mal formado, o —en `POST /api/peliculas/imagen`— un `Content-Type` que no es `multipart/form-data` | 400 | "El cuerpo del request no tiene el formato que este endpoint espera" | `request.json()` lanza `SyntaxError` si el JSON es inválido; `request.formData()` lanza `TypeError` si el `Content-Type` no es multipart, y el endpoint lo traduce al mismo `SyntaxError`. Los dos son un error de quien llama, no un 500. En una ruta protegida, igual que el 400 de Zod: si no hay sesión, la respuesta es 401, porque la sesión se verifica antes de intentar leer el body. |
 | No hay sesión iniciada en una ruta que la requiere | 401 | "Necesitás iniciar sesión" | `requerirUsuario()`, `lib/auth.ts`. Es la primera verificación de cada handler protegido, antes de validar nada del request. |
 | Hay sesión, pero el rol no es el que la ruta exige | 403 | "No tenés permiso para hacer esto" | `requerirUsuario(rol)`, mismo origen que el 401. |
 | El recurso de `:id` no existe, o existe pero no pertenece a quien pregunta | 404 | Mensaje propio de cada entidad (p. ej. "No se encontró la sala con id `<id>`") | Un recurso ajeno responde exactamente lo mismo que uno inexistente — nunca 403 — para que no se puedan confirmar ids probando de a uno (ver "Reglas generales de error" al principio de este documento). |
@@ -154,8 +162,10 @@ aceptación puntual de `docs/spec.md`. Cada mensaje sale tal cual del código �
 
 Quedan afuera de esta tabla los endpoints cuyos errores son enteramente transversales: los `GET` de
 listados y de la cartelera (solo el 400 de `limite`), `GET /api/funciones/:id/butacas` (solo el 404
-genérico) y `PATCH /api/peliculas/:id` (400 de Zod y 404 genérico — no hay una historia de usuario
-de "editar película" en el spec).
+genérico), `PATCH /api/peliculas/:id` (400 de Zod y 404 genérico — no hay una historia de usuario
+de "editar película" en el spec) y `POST /api/peliculas/imagen` (400 de `lib/schemas/imagen.ts` —
+falta el archivo, tipo o tamaño inválido —, mismo caso: la subida de imagen tampoco es una historia
+con criterios numerados, es infraestructura de H6).
 
 | Operación | Situación | Status | Mensaje al usuario | Criterio (spec) |
 |---|---|---|---|---|

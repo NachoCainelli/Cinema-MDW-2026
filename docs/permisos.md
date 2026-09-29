@@ -55,6 +55,7 @@ Dos cosas de esta función definen toda la matriz:
 | `GET /api/salas` | 401 | 403 | 403 | ✅ |
 | `DELETE /api/salas/:id` (H5) | 401 | 403 | 403 | ✅ |
 | `POST /api/peliculas` | 401 | 403 | ✅ | 403 |
+| `POST /api/peliculas/imagen` | 401 | 403 | ✅ | 403 |
 | `GET /api/peliculas` | 401 | 403 | ✅ | 403 |
 | `PATCH /api/peliculas/:id` | 401 | 403 | ✅ | 403 |
 | `DELETE /api/peliculas/:id` (H6) | 401 | 403 | ✅ | 403 |

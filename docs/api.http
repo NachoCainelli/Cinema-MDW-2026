@@ -233,7 +233,7 @@ GET {{baseUrl}}/api/funciones/{{funcionPorEmpezar.response.body.$.id}}/butacas
 #   `lib/api/respuestas.ts`.
 # ═════════════════════════════════════════════════════════════════════════════
 
-### Transversal · Body que no es JSON válido → 400 "El cuerpo del request no es JSON válido", sin `detalles`
+### Transversal · Body que no es JSON válido → 400 "El cuerpo del request no tiene el formato que este endpoint espera", sin `detalles`
 # Contra un endpoint público, para que el 400 no dependa de la sesión. En uno
 # con sesión, sin cookie la respuesta es 401 y no 400: la autorización va antes
 # que la validación (AGENTS.md, "Capa API").

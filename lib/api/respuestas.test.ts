@@ -38,7 +38,20 @@ describe("respuestaDeError", () => {
     const respuesta = respuestaDeError(endpoint, new SyntaxError("Unexpected end of JSON input"));
 
     expect(respuesta.status).toBe(400);
-    expect((await cuerpo(respuesta)).error).toBe("El cuerpo del request no es JSON válido");
+    expect((await cuerpo(respuesta)).error).toBe(
+      "El cuerpo del request no tiene el formato que este endpoint espera",
+    );
+  });
+
+  it("traduce un body que no es multipart/form-data a 400, con el mismo mensaje", async () => {
+    // POST /api/peliculas/imagen traduce el TypeError de `request.formData()`
+    // a este mismo SyntaxError: es el mismo caso que el JSON mal formado.
+    const respuesta = respuestaDeError(endpoint, new SyntaxError("El cuerpo del request no es multipart/form-data"));
+
+    expect(respuesta.status).toBe(400);
+    expect((await cuerpo(respuesta)).error).toBe(
+      "El cuerpo del request no tiene el formato que este endpoint espera",
+    );
   });
 
   it("traduce ErrorNoAutenticado a 401", async () => {
