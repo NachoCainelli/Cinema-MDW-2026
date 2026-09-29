@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 describe("subirImagen", () => {
-  it("sube el archivo al bucket público con la service_role key", async () => {
+  it("sube el archivo al bucket público con la service_role key y un timeout", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
 
     await subirImagen(archivo());
@@ -36,6 +36,7 @@ describe("subirImagen", () => {
       "Content-Type": "image/png",
     });
     expect(opciones.body).toBeInstanceOf(File);
+    expect(opciones.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("devuelve la URL pública del bucket, no la de escritura", async () => {
@@ -65,16 +66,49 @@ describe("subirImagen", () => {
     expect(url).toMatch(/\.webp$/);
   });
 
-  it("tira un error si Supabase Storage responde con un status de error", async () => {
+  it("devuelve null (no lanza) y loguea si Supabase Storage responde con un error", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     fetchMock.mockResolvedValue(new Response("bucket no encontrado", { status: 404 }));
 
-    await expect(subirImagen(archivo())).rejects.toThrow(/404/);
+    const resultado = await subirImagen(archivo());
+
+    expect(resultado).toBeNull();
+    expect(log).toHaveBeenCalledWith("storage: no se pudo subir la imagen", expect.any(Error));
+    log.mockRestore();
   });
 
-  it("tira un error claro si faltan las variables de entorno", async () => {
+  it("devuelve null y loguea si falla la red", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+
+    const resultado = await subirImagen(archivo());
+
+    expect(resultado).toBeNull();
+    expect(log).toHaveBeenCalledWith("storage: no se pudo subir la imagen", expect.any(TypeError));
+    log.mockRestore();
+  });
+
+  it("devuelve null y loguea si Storage no responde a tiempo (timeout)", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    // Lo que tira `AbortSignal.timeout` cuando se cumple el plazo.
+    fetchMock.mockRejectedValue(new DOMException("The operation was aborted", "TimeoutError"));
+
+    const resultado = await subirImagen(archivo());
+
+    expect(resultado).toBeNull();
+    expect(log).toHaveBeenCalledWith("storage: no se pudo subir la imagen", expect.any(DOMException));
+    log.mockRestore();
+  });
+
+  it("devuelve null y loguea si faltan las variables de entorno, sin llamar a fetch", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.unstubAllEnvs();
 
-    await expect(subirImagen(archivo())).rejects.toThrow(/SUPABASE_URL|SUPABASE_SERVICE_ROLE_KEY/);
+    const resultado = await subirImagen(archivo());
+
+    expect(resultado).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith("storage: no se pudo subir la imagen", expect.any(String));
+    log.mockRestore();
   });
 });
