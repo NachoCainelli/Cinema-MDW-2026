@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import {
   ErrorDeConflicto,
   ErrorDePagoRechazado,
+  ErrorDeServicioExterno,
   ErrorNoAutenticado,
   ErrorNoAutorizado,
   ErrorNoEncontrado,
@@ -57,6 +58,10 @@ export function respuestaDeError(endpoint: string, error: unknown): NextResponse
 
   if (error instanceof ErrorDeConflicto) {
     return NextResponse.json({ error: error.message }, { status: 409 });
+  }
+
+  if (error instanceof ErrorDeServicioExterno) {
+    return NextResponse.json({ error: error.message }, { status: 502 });
   }
 
   // Solo el 500 se loguea: los demás son respuestas esperadas del contrato,
