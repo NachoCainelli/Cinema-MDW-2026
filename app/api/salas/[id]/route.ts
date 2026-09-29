@@ -15,6 +15,6 @@ export async function DELETE(
     await eliminarSalaLogico(salaId); // 404 / 409
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("DELETE /api/salas/:id", error);
   }
 }

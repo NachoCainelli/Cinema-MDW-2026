@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const compra = await crearCompra(datos, usuario.id); // 402 / 404 / 409
     return NextResponse.json(compra, { status: 201 });
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("POST /api/compras", error);
   }
 }
 
@@ -45,6 +45,6 @@ export async function GET(request: Request) {
     const compras = await listarComprasDeUsuario(usuario.id, query);
     return NextResponse.json(compras);
   } catch (error) {
-    return respuestaDeError(error);
+    return respuestaDeError("GET /api/compras", error);
   }
 }
