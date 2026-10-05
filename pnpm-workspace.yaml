@@ -6,6 +6,15 @@ saveExact: true
 
 overrides:
   deepmerge-ts: '8.0.0'
+  brace-expansion@<1.1.21: '^1.1.21'
+  brace-expansion@>=4.0.0 <5.0.12: '^5.0.12'
+
+auditConfig:
+  ignoreGhsas:
+    # braces <=3.0.3 (DoS con patrones anidados): no hay versión corregida publicada (la última es 3.0.3).
+    # Solo llega por eslint-config-next > fast-glob > micromatch (devDependency, no va al build de producción)
+    # y ESLint solo expande los globs del propio repo. Sacar esta línea cuando exista braces >=3.0.4.
+    - GHSA-vfj7-8cjw-p6xm
 
 allowBuilds:
   '@prisma/client@6.19.3': true
