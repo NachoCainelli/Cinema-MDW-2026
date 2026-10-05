@@ -39,3 +39,20 @@ export class ErrorDePagoRechazado extends ErrorDeNegocio {
     super(mensaje);
   }
 }
+
+/**
+ * Un servicio externo esencial para la operación no respondió o devolvió un
+ * error (`lib/servicios/<cual>.ts` devuelve `null`). Es 502 y no 500: no se
+ * rompió nada nuestro, falló una dependencia de la que dependemos — el
+ * mensaje se lo dice a quien pregunta, no hay nada que el cliente pueda
+ * corregir del lado suyo.
+ *
+ * TODO (clase 7, #58): puede quedar redefinido acá cuando se resuelva el
+ * contrato de errores de la Fase A; este es el mínimo que necesita #59 para
+ * no bloquearse mientras tanto.
+ */
+export class ErrorDeServicioExterno extends ErrorDeNegocio {
+  constructor(mensaje = "No pudimos completar la operación. Probá de nuevo en unos minutos") {
+    super(mensaje);
+  }
+}
