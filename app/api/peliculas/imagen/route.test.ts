@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorNoAutenticado, ErrorNoAutorizado } from "@/lib/errores";
 
 vi.mock("@/lib/auth", () => ({ requerirUsuario: vi.fn() }));
-vi.mock("@/lib/storage", () => ({ subirImagen: vi.fn() }));
+vi.mock("@/lib/servicios/storage", () => ({ subirImagen: vi.fn() }));
 
 const { requerirUsuario } = await import("@/lib/auth");
-const { subirImagen } = await import("@/lib/storage");
+const { subirImagen } = await import("@/lib/servicios/storage");
 const { POST } = await import("./route");
 
 const autorizar = vi.mocked(requerirUsuario);
@@ -122,14 +122,17 @@ describe("POST /api/peliculas/imagen", () => {
     expect(subir).not.toHaveBeenCalled();
   });
 
-  it("responde 500 si Supabase Storage no responde, sin filtrar el detalle interno", async () => {
-    const log = vi.spyOn(console, "error").mockImplementation(() => {});
-    subir.mockRejectedValue(new Error("fetch failed: connect ETIMEDOUT"));
+  it("responde 502 si Storage no pudo subir la imagen (subirImagen devuelve null)", async () => {
+    // subirImagen no lanza (lib/servicios/storage.ts): cualquier falla propia
+    // ya se logueó ahí y llega acá como null. Storage es esencial para este
+    // endpoint, así que null es un 502 y no un 201 con imagenUrl vacío.
+    subir.mockResolvedValue(null);
 
     const respuesta = await POST(postRequest());
 
-    expect(respuesta.status).toBe(500);
-    await expect(respuesta.json()).resolves.toEqual({ error: "Error interno del servidor" });
-    log.mockRestore();
+    expect(respuesta.status).toBe(502);
+    await expect(respuesta.json()).resolves.toEqual({
+      error: "No pudimos subir la imagen. Probá de nuevo en unos minutos",
+    });
   });
 });
