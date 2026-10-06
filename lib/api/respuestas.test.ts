@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   ErrorDeConflicto,
   ErrorDePagoRechazado,
+  ErrorDeServicioExterno,
   ErrorNoAutenticado,
   ErrorNoAutorizado,
   ErrorNoEncontrado,
@@ -88,6 +89,13 @@ describe("respuestaDeError", () => {
     expect((await cuerpo(respuesta)).error).toBe("La butaca ya está vendida");
   });
 
+  it("traduce ErrorDeServicioExterno a 502 y muestra el motivo", async () => {
+    const respuesta = respuestaDeError(endpoint, new ErrorDeServicioExterno("Storage no respondió"));
+
+    expect(respuesta.status).toBe(502);
+    expect((await cuerpo(respuesta)).error).toBe("Storage no respondió");
+  });
+
   it("traduce un error inesperado a 500 sin filtrar el detalle interno en la respuesta", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const interno = new Error("connect ECONNREFUSED 10.0.0.1:5432 (postgres://admin:hunter2@...)");
@@ -122,6 +130,7 @@ describe("respuestaDeError", () => {
     respuestaDeError(endpoint, new ErrorNoAutenticado());
     respuestaDeError(endpoint, new ErrorNoAutorizado());
     respuestaDeError(endpoint, new ErrorDePagoRechazado("Tarjeta sin fondos"));
+    respuestaDeError(endpoint, new ErrorDeServicioExterno("Storage no respondió"));
 
     expect(log).not.toHaveBeenCalled();
     log.mockRestore();

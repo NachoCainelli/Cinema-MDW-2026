@@ -6,7 +6,23 @@ Este archivo lo lee tu asistente de IA (Cursor, Copilot, Claude Code, etc.) ante
 
 ## Qué es este proyecto
 
-<Completar en la clase 1: qué hace el sistema, quiénes son los dos roles y cuál es el flujo principal.>
+Cinema MDW 2026 unifica la gestión de cartelera y la venta de entradas de un cine. Hoy la
+programación se arma aparte (planillas, WhatsApp) y se carga a mano en un sistema de boletería
+viejo que no se comunica con ella, lo que genera desfasajes entre butacas vendidas y butacas que
+figuran libres. El sistema reemplaza ese doble paso con disponibilidad de butacas en tiempo real y
+compra online con selección de butaca (detalle completo en `docs/spec.md`, secciones 1 y 5).
+
+Tres roles (`docs/spec.md`, sección 2):
+- **Administrador** — configura la estructura del cine: crea salas y butacas, y crea las cuentas
+  de administrador y de gestor de cartelera (nadie se autoregistra con esos dos roles).
+- **Gestor de cartelera** — arma la programación: crea películas, las asigna a salas con horario
+  (crea funciones) y las saca de cartelera.
+- **Usuario** — público que compra entradas: se registra por su cuenta, ve la cartelera publicada,
+  compra entradas con selección de butaca y ve su historial de compras.
+
+Flujo principal: el gestor de cartelera publica una función (película + sala + horario), queda
+visible en la cartelera pública, y un usuario la ve, elige butacas y confirma la compra — con el
+pago (simulado) resolviéndose al instante y sin reserva temporal de butacas.
 
 ## Stack
 
@@ -41,6 +57,7 @@ Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca 
 | Una regla de negocio pura | `lib/<dominio>.ts`, sin `import` de Prisma ni de Next |
 | Un error de negocio | `lib/errores.ts` |
 | Algo compartido por todos los endpoints | `lib/api/<tema>.ts` |
+| Una llamada a un servicio externo | `lib/servicios/<cual>.ts` |
 | Un helper sin dependencias | `lib/utils.ts` |
 
 ## Reglas
@@ -93,6 +110,14 @@ se loguea el 500: los demás status son respuestas esperadas del contrato, no in
 - El mismo schema se usa en el cliente y en el servidor. No duplicar reglas de validación.
 - Prohibido `any`. Si no se conoce el tipo, usar `unknown` y validar.
 - **`usuarioId` y `rol` no son campos que mande el cliente sobre sí mismo.** Ningún schema de `lib/schemas/` acepta un `usuarioId` (la identidad sale siempre de la sesión, nunca del body ni de la query — ver `crearCompraSchema`), y el registro público (`registrarUsuarioSchema`) no acepta `rol` (toda cuenta nueva nace `USUARIO`, sin excepción — ver `lib/db/usuarios.ts`). La única excepción real es `crearCuentaStaffSchema`, que sí tiene un campo `rol`: ahí no es la identidad de quien llama, es el rol que un `ADMINISTRADOR` ya autenticado le asigna a la cuenta *que está creando* — la regla que importa no es "rol nunca en un schema", es "el rol o el id de quien hace el request no puede venir del cliente", y esa sigue sin violarse.
+
+### Servicios externos
+- **Toda llamada a un servicio externo de verdad (pago con pasarela real, Storage, cualquier API de un tercero) vive en `lib/servicios/<cual>.ts`.** Ningún `route.ts` ni función de `lib/db/` llama directo a un `fetch` de otro dominio. (`lib/pagos.ts` es el mock de hoy y no llama a ningún tercero; el día que se reemplace por una pasarela real, se muda a `lib/servicios/pagos.ts`.)
+- **Siempre con timeout.** Un servicio externo caído no puede dejar el request colgado esperando: si no responde en un tiempo razonable, el módulo lo trata como una falla más, no como "sigue procesando".
+- **Devuelve, no lanza el error de red.** El módulo de servicio atrapa la falla (timeout, red, status de error), la loguea y devuelve un resultado (`null`, por convención) para que decida quien lo llama: si el servicio es esencial para esa operación, el `route.ts` lanza `ErrorDeServicioExterno` (`lib/errores.ts`, 502); si es accesorio, sigue con la respuesta degradada (ver `subirImagen` en `lib/servicios/storage.ts` y `POST /api/peliculas/imagen`). El módulo no lanza `ErrorDeServicioExterno`: esencial o accesorio depende de la operación, no del servicio. Lo que tampoco hace es dejar escapar la excepción cruda del `fetch` (un `TypeError` de red, por ejemplo) para que la agarre cualquiera más arriba sin traducir.
+- **La credencial del servicio vive solo ahí, y nunca con `NEXT_PUBLIC_`.** Ningún componente ni otro módulo la necesita: `lib/servicios/<cual>.ts` es el único que la lee de `process.env`.
+- **Loguea la falla antes de devolver o lanzar**, con qué servicio falló y por qué, para que un 502 (o una degradación silenciosa, si es accesorio) tenga rastro en el log del servidor.
+- **Dónde se llama, según si es esencial o accesorio para la operación que la dispara** (el criterio lo decide el negocio caso por caso, no el código; `docs/spec.md`, sección 8, tiene el detalle de cada servicio de hoy): lo **accesorio** —no bloquea el resultado principal, como subir el póster al crear una película— se llama **después** de confirmar la operación principal, así que si falla, la operación ya se hizo y solo se informa la degradación; lo **esencial** —sin eso la operación no tiene sentido, como cobrar antes de confirmar una compra— se llama **antes** de confirmarla, así que si falla, no se confirma nada.
 
 ### Seguridad
 - **La autorización se verifica siempre en el servidor**, en cada Route Handler y cada Server Action. Que la UI esconda un botón no es una medida de seguridad.
