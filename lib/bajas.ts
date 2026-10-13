@@ -16,6 +16,8 @@
  * sumarle su `duracionMinutos` a su `inicio`.
  */
 
+import { formatearFecha } from "@/lib/utils";
+
 export interface FuncionParaBaja {
   id: string;
   titulo: string;
@@ -53,17 +55,6 @@ export function funcionesQueImpidenBaja(
 
 /** Cuantas funciones como maximo se listan por nombre en el mensaje de 409. */
 const MAXIMO_FUNCIONES_EN_MENSAJE = 5;
-
-function formatearFecha(fecha: Date): string {
-  return fecha.toLocaleString("es-AR", {
-    timeZone: "America/Argentina/Buenos_Aires",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 /**
  * Arma el detalle de funciones para el mensaje de 409: hasta 5, con titulo y
