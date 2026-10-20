@@ -157,7 +157,7 @@ export default async function Sistema() {
           <SinDatos
             titulo="Todavía no compraste entradas"
             explicacion="Cuando compres, tus entradas van a aparecer acá."
-            accion={{ etiqueta: "Ver la cartelera", href: "/cartelera" }}
+            accion={{ etiqueta: "Volver al inicio", href: "/" }}
           />
         </div>
       </section>

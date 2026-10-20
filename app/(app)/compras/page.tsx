@@ -11,8 +11,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import FiltroCompras, { type CompraDelListado } from "@/components/FiltroCompras";
+import SinDatos from "@/components/SinDatos";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { obtenerUsuario } from "@/lib/auth";
 import { funcionYaEmpezo } from "@/lib/butacas";
 import { listarComprasDeUsuario } from "@/lib/db/compras";
@@ -57,12 +57,12 @@ export default async function MisCompras() {
       <h1 className="mt-4 text-2xl font-bold">Mis compras</h1>
 
       {listado.length === 0 ? (
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Todavía no compraste entradas</CardTitle>
-            <CardDescription>Cuando compres, tus entradas van a aparecer acá.</CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="mt-6">
+          <SinDatos
+            titulo="Todavía no compraste entradas"
+            explicacion="Cuando compres, tus entradas van a aparecer acá."
+          />
+        </div>
       ) : (
         <FiltroCompras compras={listado} />
       )}
