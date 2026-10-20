@@ -185,7 +185,7 @@ las que la requieren, en `app/(app)/`.
 | 1 | Crear función | `/gestion/funciones/nueva` | `GESTOR_CARTELERA` | `(app)` | Sin pantalla todavía |
 | 2 | — (pasa en el servidor: la función creada ya figura en la cartelera) | — | — | — | No es una pantalla |
 | 3 | Registrarse | `/registrarse` | Sin sesión | `(public)` | Sin pantalla todavía |
-| 3 | Ingresar | `/ingresar` | Sin sesión | `(public)` | Sin pantalla todavía (hoy se usa `/api/auth/signin` de Auth.js) |
+| 3 | Ingresar | `/ingresar` | Sin sesión | `(public)` | Existe (`pages.signIn` de Auth.js apunta acá) |
 | 4 | Cartelera | `/cartelera` | Cualquiera, con o sin sesión | `(public)` | Sin pantalla todavía |
 | 5 | Butacas de la función | `/funciones/[id]` | Cualquiera ve las butacas; elegir y comprar requiere `USUARIO` | `(public)` | Sin pantalla todavía |
 | 6 | Confirmar compra | `/funciones/[id]` (misma pantalla que el paso 5) | `USUARIO` | `(public)` | Sin pantalla todavía |

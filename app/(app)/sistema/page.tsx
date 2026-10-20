@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { obtenerUsuario } from "@/lib/auth";
+import { urlDeIngreso } from "@/lib/navegacion";
 import { formatearFecha } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -77,7 +78,7 @@ const COMPRAS_DE_EJEMPLO = [
 
 export default async function Sistema() {
   const usuario = await obtenerUsuario();
-  if (!usuario) redirect(`/api/auth/signin?callbackUrl=${encodeURIComponent("/sistema")}`);
+  if (!usuario) redirect(urlDeIngreso("/sistema"));
   if (usuario.rol !== "ADMINISTRADOR" && usuario.rol !== "GESTOR_CARTELERA") notFound();
 
   return (

@@ -25,6 +25,7 @@ import {
 import { obtenerUsuario } from "@/lib/auth";
 import { obtenerCompraDeUsuario } from "@/lib/db/compras";
 import { ErrorNoEncontrado } from "@/lib/errores";
+import { urlDeIngreso } from "@/lib/navegacion";
 import { compraIdSchema } from "@/lib/schemas/compra";
 import { formatearFecha } from "@/lib/utils";
 
@@ -47,9 +48,7 @@ export default async function DetalleCompra({ params }: { params: Promise<{ id: 
   const { id } = await params;
 
   const usuario = await obtenerUsuario();
-  if (!usuario) {
-    redirect(`/api/auth/signin?callbackUrl=${encodeURIComponent(`/compras/${id}`)}`);
-  }
+  if (!usuario) redirect(urlDeIngreso(`/compras/${id}`));
   if (usuario.rol !== "USUARIO") notFound();
 
   const compraId = compraIdSchema.safeParse(id);
