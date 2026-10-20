@@ -8,13 +8,14 @@
  */
 import Link from "next/link";
 
+import SinDatos from "@/components/SinDatos";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
   return (
     <main className="mx-auto max-w-2xl p-8">
       <h1 className="text-2xl font-bold">Cinema MDW 2026</h1>
-      <p className="mt-2 text-sm opacity-70">
+      <p className="mt-2 text-sm text-muted-foreground">
         Equipo: completar en el README y acá.
       </p>
 
@@ -22,13 +23,12 @@ export default function Home() {
         <Link href="/compras">Mis compras</Link>
       </Button>
 
-      <section className="mt-8 rounded-lg border border-dashed p-6">
-        <h2 className="text-lg font-semibold">Cartelera pública — próximamente</h2>
-        <p className="mt-2 text-sm opacity-80">
-          Acá va a verse la cartelera de funciones (H3) y la compra de entradas
-          (H4) una vez que estén implementadas.
-        </p>
-      </section>
+      <div className="mt-8">
+        <SinDatos
+          titulo="Cartelera pública — próximamente"
+          explicacion="Acá va a verse la cartelera de funciones (H3) y la compra de entradas (H4) una vez que estén implementadas."
+        />
+      </div>
     </main>
   );
 }
