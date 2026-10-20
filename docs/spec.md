@@ -209,6 +209,9 @@ Decisiones del mapa:
   sigue siendo `POST /api/compras` en el servidor.
 - **Las pantallas del gestor y del administrador** van bajo `/gestion/…`, en `(app)`. Fuera del flujo
   principal (salas, películas, cuentas de staff) todavía no tienen dirección decidida.
+- **`/sistema` (`(app)`) es una pantalla interna del equipo** con el sistema visual (issue #74),
+  fuera del flujo principal. Solo la abren `ADMINISTRADOR` y `GESTOR_CARTELERA`; un `USUARIO` ve
+  404.
 
 ## 6. Reglas de negocio
 
