@@ -16,6 +16,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { obtenerUsuario } from "@/lib/auth";
 import { funcionYaEmpezo } from "@/lib/butacas";
 import { listarComprasDeUsuario } from "@/lib/db/compras";
+import { urlDeIngreso } from "@/lib/navegacion";
 import { historialQuerySchema } from "@/lib/schemas/compra";
 import { formatearFecha } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ export const metadata: Metadata = {
 
 export default async function MisCompras() {
   const usuario = await obtenerUsuario();
-  if (!usuario) redirect(`/api/auth/signin?callbackUrl=${encodeURIComponent("/compras")}`);
+  if (!usuario) redirect(urlDeIngreso("/compras"));
   if (usuario.rol !== "USUARIO") notFound();
 
   // El id sale de la sesión, nunca de la URL.

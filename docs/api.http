@@ -28,7 +28,7 @@
 # el archivo alterna entre admin, gestor y usuario sin volver a iniciar sesión.
 #
 # Cómo se obtiene cada cookie:
-#   1. Abrir {{baseUrl}}/api/auth/signin en el navegador y entrar con la cuenta
+#   1. Abrir {{baseUrl}}/ingresar en el navegador y entrar con la cuenta
 #      del rol: las de `pnpm db:seed` con la contraseña de SEED_PASSWORD, o con
 #      Google si el email está en SEED_EMAIL_ADMIN / SEED_EMAIL_GESTOR.
 #        admin@ejemplo.com       → @cookieAdmin
