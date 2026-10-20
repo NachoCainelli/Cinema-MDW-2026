@@ -174,6 +174,42 @@ El recorrido completo, paso a paso, del flujo que da valor al sistema (no un ABM
    para esa función.
 8. El usuario ve su compra confirmada, con sus entradas, en su historial.
 
+### Mapa de pantallas
+
+Una fila por paso del flujo. Las direcciones se deciden acá y no se cambian sin actualizar esta
+tabla: un link que ya se mandó no puede romperse. Las páginas sin sesión van en `app/(public)/`;
+las que la requieren, en `app/(app)/`.
+
+| Paso | Pantalla | Dirección | Quién la abre | Grupo | Estado |
+|---|---|---|---|---|---|
+| 1 | Crear función | `/gestion/funciones/nueva` | `GESTOR_CARTELERA` | `(app)` | Sin pantalla todavía |
+| 2 | — (pasa en el servidor: la función creada ya figura en la cartelera) | — | — | — | No es una pantalla |
+| 3 | Registrarse | `/registrarse` | Sin sesión | `(public)` | Sin pantalla todavía |
+| 3 | Ingresar | `/ingresar` | Sin sesión | `(public)` | Sin pantalla todavía (hoy se usa `/api/auth/signin` de Auth.js) |
+| 4 | Cartelera | `/cartelera` | Cualquiera, con o sin sesión | `(public)` | Sin pantalla todavía |
+| 5 | Butacas de la función | `/funciones/[id]` | Cualquiera ve las butacas; elegir y comprar requiere `USUARIO` | `(public)` | Sin pantalla todavía |
+| 6 | Confirmar compra | `/funciones/[id]` (misma pantalla que el paso 5) | `USUARIO` | `(public)` | Sin pantalla todavía |
+| 7 | — (pasa en el servidor: `POST /api/compras` procesa el pago y genera la Compra) | — | — | — | No es una pantalla |
+| 8 | Detalle de la compra | `/compras/[id]` | `USUARIO` dueño de la compra | `(app)` | Existe (PR #72) |
+| 8 | Historial de compras | `/compras` | `USUARIO` | `(app)` | Existe (PR #72) |
+
+Decisiones del mapa:
+
+- **La home (`/`) no es la cartelera.** La cartelera tiene su propia dirección, `/cartelera`, y la
+  home la enlaza con un link fijo, en el mismo lugar del encabezado en todas las pantallas. Así se
+  cumple el "a un clic desde la home y siempre en el mismo lugar" de §7 (Usabilidad), y la dirección
+  de la cartelera no depende de lo que muestre la home.
+- **Elegir butacas y confirmar son la misma pantalla** (`/funciones/[id]`). Separarlas sumaría una
+  navegación y haría más difícil no perder la selección ante un error (§7: compra en 4
+  interacciones o menos, y sin perder la selección ya hecha). Después de confirmar, la pantalla
+  lleva a `/compras/[id]` (paso 8).
+- **`/funciones/[id]` es pública** porque las butacas libres de una función publicada son parte de
+  la cartelera. Confirmar la compra exige sesión: sin sesión, el botón lleva a
+  `/ingresar?callbackUrl=/funciones/[id]`. Esto es experiencia de uso; quien autoriza la compra
+  sigue siendo `POST /api/compras` en el servidor.
+- **Las pantallas del gestor y del administrador** van bajo `/gestion/…`, en `(app)`. Fuera del flujo
+  principal (salas, películas, cuentas de staff) todavía no tienen dirección decidida.
+
 ## 6. Reglas de negocio
 
 Las restricciones que **no** son obvias y que la IA no puede adivinar. Estas son las que hay que
