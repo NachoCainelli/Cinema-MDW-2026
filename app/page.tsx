@@ -6,6 +6,10 @@
  * junto con el resto de ese scaffolding (lib/db/notas.ts, lib/schemas/nota.ts,
  * app/api/notas/route.ts).
  */
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
+
 export default function Home() {
   return (
     <main className="mx-auto max-w-2xl p-8">
@@ -13,6 +17,10 @@ export default function Home() {
       <p className="mt-2 text-sm opacity-70">
         Equipo: completar en el README y acá.
       </p>
+
+      <Button asChild className="mt-6">
+        <Link href="/compras">Mis compras</Link>
+      </Button>
 
       <section className="mt-8 rounded-lg border border-dashed p-6">
         <h2 className="text-lg font-semibold">Cartelera pública — próximamente</h2>
