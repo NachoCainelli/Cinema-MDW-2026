@@ -22,5 +22,5 @@ allowBuilds:
   esbuild@0.28.1: true
   fsevents@2.3.3: true
   prisma@6.19.3: true
-  sharp@0.35.3: true
+  sharp@0.35.5: true
   unrs-resolver@1.12.2: true
