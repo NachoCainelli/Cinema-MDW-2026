@@ -14,6 +14,7 @@ import type { Metadata } from "next";
 import { Plus } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 
+import Campo from "@/components/Campo";
 import EstadoCompra, { ESTADOS_DE_COMPRA } from "@/components/EstadoCompra";
 import SinDatos from "@/components/SinDatos";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -28,6 +29,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { obtenerUsuario } from "@/lib/auth";
 import { urlDeIngreso } from "@/lib/navegacion";
@@ -214,6 +216,80 @@ export default async function Sistema() {
               El email no es válido.
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold">Campo</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Etiqueta conectada al control, ayuda y error anunciados por el lector de pantalla.
+        </p>
+        <div className="mt-4 grid gap-5 sm:grid-cols-2">
+          <Campo etiqueta="Nombre de la sala" nombre="muestra-sala" required defaultValue="Sala 1" />
+          <Campo
+            etiqueta="Duración"
+            nombre="muestra-duracion"
+            inputMode="numeric"
+            ayuda="En minutos, sin contar los avances."
+          />
+          <Campo
+            etiqueta="Capacidad"
+            nombre="muestra-capacidad"
+            inputMode="numeric"
+            required
+            defaultValue="-20"
+            errores={["La capacidad tiene que ser un número positivo"]}
+          />
+          <Campo
+            etiqueta="Película"
+            nombre="muestra-pelicula-deshabilitada"
+            defaultValue="El secreto de sus ojos"
+            ayuda="No se puede cambiar una vez vendidas las entradas."
+            disabled
+          />
+          <Campo
+            etiqueta="Sala"
+            nombre="muestra-sala-select"
+            required
+            ayuda="El Select de shadcn: el label enfoca el disparador y el valor viaja en el formulario con su nombre."
+            control={({ name, ...conexiones }) => (
+              <Select name={name} defaultValue="sala-1" required>
+                <SelectTrigger {...conexiones} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sala-1">Sala 1</SelectItem>
+                  <SelectItem value="sala-2">Sala 2</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+          <Campo
+            etiqueta="Función"
+            nombre="muestra-funcion"
+            required
+            errores={["Elegí una función de la lista"]}
+            control={({ name, ...conexiones }) => (
+              <Select name={name} required>
+                <SelectTrigger {...conexiones} className="w-full">
+                  <SelectValue placeholder="Elegí una función" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="funcion-1">Sábado 14/11 · 21:30 · Sala 1</SelectItem>
+                  <SelectItem value="funcion-2">Domingo 15/11 · 18:00 · Sala 3</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          />
+          <Campo
+            etiqueta="Título original de la película tal como figura en la distribuidora, con subtítulo y edición"
+            nombre="muestra-largo"
+            defaultValue="Supercalifragilisticoespialidosoextraordinariamentelarguísimo"
+            ayuda="Una ayuda larguísima que explica con demasiado detalle el formato esperado: Supercalifragilisticoespialidosoextraordinariamentelarguísimo, sin cortar el layout a 375px."
+            errores={[
+              "Un error larguísimo: el título no puede superar los 200 caracteres y este tiene Supercalifragilisticoespialidosoextraordinariamentelarguísimo",
+            ]}
+          />
         </div>
       </section>
 
