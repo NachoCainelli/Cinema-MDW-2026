@@ -17,7 +17,7 @@ export const crearFuncionSchema = z.object({
   // Date real. El refine se evalúa en cada validación (no al arrancar el
   // servidor), así que compara siempre contra el momento actual.
   inicio: z.coerce
-    .date()
+    .date({ error: "Falta la fecha y hora de inicio" })
     .refine((fecha) => fecha.getTime() > Date.now(), "La función no puede empezar en el pasado"),
 });
 export type CrearFuncionInput = z.infer<typeof crearFuncionSchema>;

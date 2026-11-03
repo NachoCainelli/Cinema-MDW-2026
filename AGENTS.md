@@ -59,6 +59,7 @@ Después de tocar `prisma/schema.prisma`, siempre generar una migración. Nunca 
 | Algo compartido por todos los endpoints | `lib/api/<tema>.ts` |
 | Una llamada a un servicio externo | `lib/servicios/<cual>.ts` |
 | Un helper sin dependencias | `lib/utils.ts` |
+| El tipo de estado de un formulario o el traductor de errores de una Server Action | `lib/formularios.ts` |
 
 ## Reglas
 
@@ -121,6 +122,9 @@ se loguea el 500: los demás status son respuestas esperadas del contrato, no in
 
 ### Seguridad
 - **La autorización se verifica siempre en el servidor**, en cada Route Handler y cada Server Action. Que la UI esconda un botón no es una medida de seguridad.
+- **Una Server Action es un endpoint público con otra sintaxis.** `"use server"` no la hace privada: Next.js publica cada función exportada como un endpoint que se puede llamar con cualquier `FormData`, sin pasar por el formulario. Su primera línea es `requerirUsuario(rol)`, y el orden es el mismo que en un Route Handler: autorizar → validar → delegar. (En la referencia de la cátedra algunos `POST` validan antes de autorizar; acá no.)
+- **Lo que el cliente no necesita elegir, el cliente no lo manda.** El id del recurso entra a la acción con `.bind(null, id)` desde la página, nunca por un `<input type="hidden">` (se edita con el inspector en diez segundos); el id del usuario sale de la sesión.
+- **Redirigir al login desde un layout no es autorización.** Un layout no se vuelve a ejecutar en cada navegación del cliente: cada página y cada acción verifican por su cuenta, y cada consulta sigue llevando el id de la sesión adentro.
 - Nunca confiar en un `userId` o un `role` que venga del cliente: se leen de la sesión con `obtenerUsuario()` / `requerirUsuario(rol)` de `lib/auth.ts`, y bajan a `lib/db/` por parámetro.
 - La sesión es de Auth.js (`lib/auth.ts`), con Google y Credentials y `strategy: "jwt"`. El rol se lee de la base al iniciar sesión y viaja en el token: ningún camino de login ni de registro toma el rol de lo que manda el cliente, y una cuenta nueva siempre nace `USUARIO`.
 - Los secretos van en variables de entorno. Ninguna variable con secretos lleva el prefijo `NEXT_PUBLIC_`.
@@ -132,6 +136,15 @@ se loguea el 500: los demás status son respuestas esperadas del contrato, no in
 - Los componentes son Server Components por defecto. `"use client"` solo si hay estado, efectos o eventos del navegador.
 - Un componente por archivo, en PascalCase. Los archivos de utilidades, en camelCase.
 - Los estados de carga y de error se resuelven siempre; no dejar la pantalla en blanco.
+- **Cinco estados por pantalla que lee:** cargando, con datos, vacío, sin resultados y error. Vacío ("todavía no compraste entradas") no es lo mismo que sin resultados ("ninguna función coincide con el filtro"): el primero ofrece qué hacer, el segundo ofrece sacar el filtro.
+- **Los formularios usan Server Actions con `useActionState`**, no `fetch` contra la propia API. El estado del formulario es el `EstadoDelFormulario` (`lib/formularios.ts`) que devolvió la acción, arrancando en `SIN_ENVIAR`: nada de un `useState` por campo.
+- **Un formulario que falla no se vacía.** La acción devuelve en `valores` lo que la persona había escrito y los campos se vuelven a pintar con eso.
+- **Dos tipos de error y dos lugares:** los de validación (`errores`) van debajo de su campo; el rechazo de una regla de negocio (`mensaje`, y `detalles` si enumera algo) va arriba del formulario. Es la diferencia entre el 400 y el 409. La acción traduce los errores con `estadoDeError` (`lib/formularios.ts`), nunca a mano: lo que no es una respuesta esperada se re-lanza a `error.tsx`, y el `message` de un error inesperado nunca llega a la pantalla.
+- **Mientras la acción corre, el botón se deshabilita y dice qué está pasando** ("Guardando…"). Evita el doble envío.
+- **Todo campo se escribe con `Campo`** (`components/Campo.tsx`): label asociado por `htmlFor`/`id`, ayuda y error conectados con `aria-describedby`, `aria-invalid` y el error con `role="alert"`. Para un `Select` de `components/ui/` o un `<textarea>`, la prop `control` recibe `name` y esas conexiones ya armadas: `name` va a la raíz del `Select` y el resto, al `SelectTrigger`.
+- **Mobile-first:** se escribe primero el caso angosto —375px, botones a lo ancho, sin scroll horizontal— y el ancho se agrega con `sm:` hacia arriba.
+- **Una Server Action llama a la misma función de `lib/db/` que el Route Handler** del mismo caso; no reescribe la regla. Después de escribir, `revalidatePath` de cada pantalla que quedó vieja, y `redirect` al final (lanza, así que lo que esté después no corre).
+- **No hay `lib/casos/`.** Las reglas ya viven en `lib/<dominio>.ts` (puras) y `lib/db/` (que lanza un error de `lib/errores.ts`); lo único que cambia entre puertas es el traductor de esos mismos errores: `respuestaDeError` (`lib/api/respuestas.ts`) para HTTP, `estadoDeError` (`lib/formularios.ts`) para Server Actions.
 
 ### Estilos
 - Solo Tailwind. Nada de CSS suelto ni estilos inline salvo valores calculados en runtime.
@@ -149,3 +162,13 @@ se loguea el 500: los demás status son respuestas esperadas del contrato, no in
 - Antes de crear un helper nuevo, buscá si ya existe uno en `lib/`.
 - Cuando toques algo de seguridad o del modelo de datos, explicá el porqué del cambio: son las dos áreas que se revisan línea por línea.
 - No dejes comentarios `TODO (clase N)` una vez que el trabajo de esa clase ya está hecho: un TODO que ya no aplica es peor que no tener TODO, porque miente sobre el estado del código. `grep -rn "TODO (clase" .` tiene que devolver solo lo que realmente falta.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

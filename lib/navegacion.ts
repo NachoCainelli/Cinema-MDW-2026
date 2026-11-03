@@ -21,12 +21,11 @@ export const ETIQUETA_DE_ROL: Record<Rol, string> = {
 // clic desde la home y siempre en el mismo lugar" (docs/spec.md §7, Recuerdo).
 const CARTELERA: LinkDeNavegacion = { href: "/cartelera", etiqueta: "Cartelera" };
 
-// Las pantallas del gestor y del administrador (`/gestion/…`, ver el mapa de
-// pantallas en docs/spec.md §5) todavía no existen: cuando existan, sus links
-// se agregan acá y no en la barra.
+// Las pantallas de gestión (`/gestion/…`, ver el mapa de pantallas en
+// docs/spec.md §5) se agregan acá a medida que existen, y no en la barra.
 const LINKS_DE_ROL: Record<Rol, LinkDeNavegacion[]> = {
   ADMINISTRADOR: [],
-  GESTOR_CARTELERA: [],
+  GESTOR_CARTELERA: [{ href: "/gestion/funciones/nueva", etiqueta: "Nueva función" }],
   USUARIO: [{ href: "/compras", etiqueta: "Mis compras" }],
 };
 

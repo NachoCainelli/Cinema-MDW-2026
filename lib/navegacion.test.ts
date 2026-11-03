@@ -17,6 +17,20 @@ describe("linksDelRol", () => {
     },
   );
 
+  it("le muestra la cartelera y 'Nueva función' a un GESTOR_CARTELERA", () => {
+    expect(linksDelRol("GESTOR_CARTELERA")).toEqual([
+      { href: "/cartelera", etiqueta: "Cartelera" },
+      { href: "/gestion/funciones/nueva", etiqueta: "Nueva función" },
+    ]);
+  });
+
+  it.each(["ADMINISTRADOR", "USUARIO"] as const)(
+    "no le muestra 'Nueva función' a un %s, que no programa la cartelera",
+    (rol) => {
+      expect(linksDelRol(rol).map((link) => link.href)).not.toContain("/gestion/funciones/nueva");
+    },
+  );
+
   it.each(["ADMINISTRADOR", "GESTOR_CARTELERA", "USUARIO"] as const)(
     "pone la cartelera primera para un %s, siempre en el mismo lugar",
     (rol) => {
