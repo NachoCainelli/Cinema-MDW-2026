@@ -185,7 +185,7 @@ las que la requieren, en `app/(app)/`.
 | 1 | Crear función | `/gestion/funciones/nueva` | `GESTOR_CARTELERA` | `(app)` | Sin pantalla todavía |
 | 2 | — (pasa en el servidor: la función creada ya figura en la cartelera) | — | — | — | No es una pantalla |
 | 3 | Registrarse | `/registrarse` | Sin sesión | `(public)` | Sin pantalla todavía |
-| 3 | Ingresar | `/ingresar` | Sin sesión | `(public)` | Sin pantalla todavía (hoy se usa `/api/auth/signin` de Auth.js) |
+| 3 | Ingresar | `/ingresar` | Sin sesión | `(public)` | Existe (`pages.signIn` de Auth.js apunta acá) |
 | 4 | Cartelera | `/cartelera` | Cualquiera, con o sin sesión | `(public)` | Sin pantalla todavía |
 | 5 | Butacas de la función | `/funciones/[id]` | Cualquiera ve las butacas; elegir y comprar requiere `USUARIO` | `(public)` | Sin pantalla todavía |
 | 6 | Confirmar compra | `/funciones/[id]` (misma pantalla que el paso 5) | `USUARIO` | `(public)` | Sin pantalla todavía |
@@ -209,6 +209,9 @@ Decisiones del mapa:
   sigue siendo `POST /api/compras` en el servidor.
 - **Las pantallas del gestor y del administrador** van bajo `/gestion/…`, en `(app)`. Fuera del flujo
   principal (salas, películas, cuentas de staff) todavía no tienen dirección decidida.
+- **`/sistema` (`(app)`) es una pantalla interna del equipo** con el sistema visual (issue #74),
+  fuera del flujo principal. Solo la abren `ADMINISTRADOR` y `GESTOR_CARTELERA`; un `USUARIO` ve
+  404.
 
 ## 6. Reglas de negocio
 

@@ -7,8 +7,7 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  // Cambiar en la clase 1 por el nombre real del sistema.
-  title: "Proyecto MDW 2026",
+  title: "Cinema MDW 2026",
   description: "Sistema desarrollado en Metodologías de Desarrollo Web — UAI",
 };
 

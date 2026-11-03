@@ -16,7 +16,7 @@ export default function Privacidad() {
   return (
     <main className="mx-auto max-w-2xl p-8">
       <h1 className="text-2xl font-bold">Política de privacidad</h1>
-      <p className="mt-2 text-sm opacity-70">
+      <p className="mt-2 text-sm text-muted-foreground">
         Cinema MDW 2026 es un proyecto académico de la materia Metodologías de
         Desarrollo Web (UAI). No es un servicio comercial.
       </p>

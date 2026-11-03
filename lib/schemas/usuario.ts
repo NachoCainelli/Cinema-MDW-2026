@@ -36,6 +36,15 @@ export const credencialesSchema = z.object({
 });
 export type CredencialesInput = z.infer<typeof credencialesSchema>;
 
+// A dónde vuelve la persona después de ingresar (`/ingresar?callbackUrl=…`).
+// Solo rutas de este sitio: aceptar "//otro.com" o "https://otro.com"
+// convertiría el login en un redireccionador abierto. Cualquier otra cosa
+// (vacío, un array, una URL externa) vuelve a la home.
+export const callbackUrlSchema = z
+  .string()
+  .regex(/^\/(?![/\\])/)
+  .catch("/");
+
 // Un administrador crea la cuenta de otro administrador o de un gestor de
 // cartelera. No hay autoregistro para estos dos roles (sección 6 del spec).
 export const crearCuentaStaffSchema = z.object({

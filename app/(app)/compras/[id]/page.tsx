@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import EstadoCompra from "@/components/EstadoCompra";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,14 +25,13 @@ import {
 import { obtenerUsuario } from "@/lib/auth";
 import { obtenerCompraDeUsuario } from "@/lib/db/compras";
 import { ErrorNoEncontrado } from "@/lib/errores";
+import { urlDeIngreso } from "@/lib/navegacion";
 import { compraIdSchema } from "@/lib/schemas/compra";
 import { formatearFecha } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Detalle de compra · Cinema MDW 2026",
 };
-
-const ETIQUETA_DE_ESTADO = { PAGADA: "Pagada" } as const;
 
 async function buscarCompra(id: string, usuarioId: string) {
   try {
@@ -48,9 +48,7 @@ export default async function DetalleCompra({ params }: { params: Promise<{ id: 
   const { id } = await params;
 
   const usuario = await obtenerUsuario();
-  if (!usuario) {
-    redirect(`/api/auth/signin?callbackUrl=${encodeURIComponent(`/compras/${id}`)}`);
-  }
+  if (!usuario) redirect(urlDeIngreso(`/compras/${id}`));
   if (usuario.rol !== "USUARIO") notFound();
 
   const compraId = compraIdSchema.safeParse(id);
@@ -70,7 +68,7 @@ export default async function DetalleCompra({ params }: { params: Promise<{ id: 
           <CardTitle className="text-xl">{funcion?.pelicula.titulo ?? "Compra"}</CardTitle>
           <CardDescription>Comprada el {formatearFecha(compra.creadaEn)}</CardDescription>
           <CardAction>
-            <Badge>{ETIQUETA_DE_ESTADO[compra.estado]}</Badge>
+            <EstadoCompra estado={compra.estado} />
           </CardAction>
         </CardHeader>
         <CardContent>

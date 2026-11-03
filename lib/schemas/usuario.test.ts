@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { crearCuentaStaffSchema, registrarUsuarioSchema } from "./usuario";
+import { callbackUrlSchema, crearCuentaStaffSchema, registrarUsuarioSchema } from "./usuario";
 
 describe("registrarUsuarioSchema", () => {
   it("acepta un registro válido", () => {
@@ -63,5 +63,23 @@ describe("crearCuentaStaffSchema", () => {
     });
 
     expect(resultado.success).toBe(false);
+  });
+});
+
+describe("callbackUrlSchema", () => {
+  it("acepta una ruta de este sitio, con su query", () => {
+    expect(callbackUrlSchema.parse("/compras/abc?x=1")).toBe("/compras/abc?x=1");
+  });
+
+  it.each([
+    ["una URL de otro dominio", "https://otro.com/compras"],
+    ["una URL sin protocolo (//)", "//otro.com"],
+    ["una barra invertida que el navegador lee como //", "/\\otro.com"],
+    ["una ruta relativa", "compras"],
+    ["un valor vacío", ""],
+    ["un parámetro repetido (llega como array)", ["/compras", "/otra"]],
+    ["la ausencia del parámetro", undefined],
+  ])("manda a la home %s", (_caso, valor) => {
+    expect(callbackUrlSchema.parse(valor)).toBe("/");
   });
 });

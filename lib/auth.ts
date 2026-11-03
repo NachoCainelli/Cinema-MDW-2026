@@ -34,6 +34,9 @@ export type UsuarioSesion = {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
+  // El login propio (`app/(public)/ingresar`). Los errores también vuelven
+  // ahí (con `?error=`), en vez de a la página genérica de Auth.js.
+  pages: { signIn: "/ingresar", error: "/ingresar" },
   providers: [
     // Lee AUTH_GOOGLE_ID y AUTH_GOOGLE_SECRET del entorno.
     Google,

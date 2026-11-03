@@ -46,10 +46,19 @@ describe("POST /api/peliculas/imagen", () => {
   });
 
   it("sube el archivo que llegó en el campo `archivo`", async () => {
+    // No usa `toHaveBeenCalledWith(elArchivo)`: ese matcher compara el `File`
+    // completo, incluido `lastModified`, que `FormData` puede reconstruir con
+    // un valor en milisegundos distinto al del archivo original —el test
+    // fallaba según el entorno, no según el comportamiento (#70). Nombre,
+    // tipo y tamaño alcanzan para confirmar que es el mismo archivo.
     const elArchivo = archivo();
     await POST(postRequest("archivo", elArchivo));
 
-    expect(subir).toHaveBeenCalledWith(elArchivo);
+    expect(subir).toHaveBeenCalledTimes(1);
+    const [recibido] = subir.mock.calls[0]!;
+    expect(recibido.name).toBe(elArchivo.name);
+    expect(recibido.type).toBe(elArchivo.type);
+    expect(recibido.size).toBe(elArchivo.size);
   });
 
   it("exige el rol GESTOR_CARTELERA", async () => {
