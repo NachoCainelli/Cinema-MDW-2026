@@ -28,8 +28,15 @@
  */
 import { PrismaClient, Rol } from "@prisma/client";
 
+import { funcionesEnConflicto, type FuncionProgramada } from "../lib/cartelera";
 import { hashearPassword } from "../lib/password";
 import { peliculas } from "./data/peliculas";
+
+// Los horarios de abajo son hora del cine, pero `setHours` usa la zona del
+// proceso: corrido desde una máquina en UTC (WSL, CI, Vercel), las funciones
+// quedaban tres horas antes. Fijar la zona acá hace que el seed dé lo mismo
+// en cualquier máquina.
+process.env.TZ = "America/Argentina/Buenos_Aires";
 
 const prisma = new PrismaClient();
 
@@ -41,7 +48,7 @@ const SALAS = [
 ];
 
 /**
- * Horarios fijos de cada sala, en hora local.
+ * Horarios fijos de cada sala, en hora del cine (Buenos Aires).
  *
  * Están separados a propósito: entre un slot y el siguiente hay más de 3 horas,
  * así que aun con la película más larga del catálogo (169 min) se respeta la
@@ -54,8 +61,17 @@ const HORARIOS = [
   { hora: 21, minuto: 30 },
 ];
 
-/** Cuántos días de cartelera se programan, empezando mañana. */
-const DIAS_DE_CARTELERA = 5;
+/**
+ * Cuántos días de cartelera se programan, empezando mañana.
+ *
+ * Producción usa esta misma base y `listarCartelera` solo muestra funciones
+ * futuras: con pocos días, la cartelera queda vacía apenas pasa una semana
+ * sin re-correr el seed. Treinta cubre hasta el cierre de la cursada.
+ */
+const DIAS_DE_CARTELERA = 30;
+
+/** Tope de funciones ya programadas que se leen por sala para no pisarlas. */
+const MAXIMO_FUNCIONES_EXISTENTES_POR_SALA = 1000;
 
 /** El mismo mínimo que pide el registro (lib/schemas/usuario.ts). */
 const LARGO_MINIMO_PASSWORD = 8;
@@ -152,11 +168,44 @@ async function main() {
   // Cartelera: cada sala proyecta, en cada uno de sus tres horarios, una
   // película distinta, rotando el catálogo. Arranca mañana para que ninguna
   // función quede en el pasado (regla de H3).
+  //
+  // El seed escribe con Prisma directo, sin pasar por `crearFuncion`, así que
+  // la regla de solapamiento se aplica acá con la misma función pura: la base
+  // es compartida con producción y puede tener funciones cargadas a mano (desde
+  // `/gestion/funciones/nueva` o `docs/api.http`) en medio de estos horarios.
+  // Un horario que se pisa con una de esas se saltea; no se la mueve ni se la
+  // borra.
+  const programadasPorSala = new Map<string, FuncionProgramada[]>();
+  for (const sala of salas) {
+    const existentes = await prisma.funcion.findMany({
+      where: { salaId: sala.id, inicio: { gte: new Date() } },
+      select: {
+        id: true,
+        inicio: true,
+        pelicula: { select: { titulo: true, duracionMinutos: true } },
+      },
+      orderBy: { inicio: "asc" },
+      take: MAXIMO_FUNCIONES_EXISTENTES_POR_SALA,
+    });
+    programadasPorSala.set(
+      sala.id,
+      existentes.map((funcion) => ({
+        id: funcion.id,
+        inicio: funcion.inicio,
+        titulo: funcion.pelicula.titulo,
+        duracionMinutos: funcion.pelicula.duracionMinutos,
+      })),
+    );
+  }
+
   const funciones = [];
+  let horariosSalteados = 0;
   let indicePelicula = 0;
 
   for (let dia = 1; dia <= DIAS_DE_CARTELERA; dia++) {
     for (const sala of salas) {
+      const programadas = programadasPorSala.get(sala.id) ?? [];
+
       for (const { hora, minuto } of HORARIOS) {
         const pelicula = peliculasCreadas[indicePelicula % peliculasCreadas.length];
         if (!pelicula) throw new Error("El catálogo de películas quedó vacío.");
@@ -172,9 +221,15 @@ async function main() {
           where: { salaId: sala.id, inicio },
         });
         if (!funcion) {
+          const nueva = { inicio, duracionMinutos: pelicula.duracionMinutos };
+          if (funcionesEnConflicto(nueva, programadas).length > 0) {
+            horariosSalteados++;
+            continue;
+          }
           funcion = await prisma.funcion.create({
             data: { peliculaId: pelicula.id, salaId: sala.id, inicio },
           });
+          programadas.push({ id: funcion.id, titulo: pelicula.titulo, ...nueva });
         }
         funciones.push(funcion);
       }
@@ -227,7 +282,10 @@ async function main() {
 
   console.log(
     `Seed completo: ${usuarios.length} usuarios, ${salas.length} salas, ` +
-      `${peliculasCreadas.length} películas, ${funciones.length} funciones.`,
+      `${peliculasCreadas.length} películas, ${funciones.length} funciones` +
+      (horariosSalteados > 0
+        ? ` (${horariosSalteados} horarios salteados por pisarse con funciones ya cargadas).`
+        : "."),
   );
 }
 
