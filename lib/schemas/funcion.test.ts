@@ -26,6 +26,19 @@ describe("crearFuncionSchema", () => {
     expect(resultado.success).toBe(false);
   });
 
+  it("rechaza un inicio vacío con un mensaje en castellano", () => {
+    // Es lo que llega del formulario cuando el datetime-local queda sin completar.
+    const resultado = crearFuncionSchema.safeParse({
+      peliculaId: "pelicula-1",
+      salaId: "sala-1",
+      inicio: "",
+    });
+
+    expect(resultado.error?.issues).toEqual([
+      expect.objectContaining({ path: ["inicio"], message: "Falta la fecha y hora de inicio" }),
+    ]);
+  });
+
   it("rechaza si falta la sala", () => {
     const resultado = crearFuncionSchema.safeParse({
       peliculaId: "pelicula-1",

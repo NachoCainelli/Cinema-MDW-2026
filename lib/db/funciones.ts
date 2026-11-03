@@ -18,6 +18,7 @@ import { prisma } from "@/lib/db/client";
 import { ErrorDeConflicto, ErrorNoEncontrado } from "@/lib/errores";
 import type { CarteleraQuery, CrearFuncionInput } from "@/lib/schemas/funcion";
 import { DURACION_MAXIMA_MINUTOS } from "@/lib/schemas/pelicula";
+import { formatearFecha } from "@/lib/utils";
 
 const UN_MINUTO_EN_MS = 60 * 1000;
 
@@ -133,10 +134,6 @@ async function funcionesQuePuedenSolapar(
   }));
 }
 
-function horario(fecha: Date) {
-  return fecha.toISOString();
-}
-
 /**
  * Crea una función (H3). La fecha en el pasado ya la rechazó el schema; acá
  * quedan las reglas que necesitan mirar la base.
@@ -178,8 +175,8 @@ export async function crearFuncion(datos: CrearFuncionInput) {
 
   if (enConflicto) {
     throw new ErrorDeConflicto(
-      `La sala ${sala.nombre} ya tiene la función de "${enConflicto.titulo}" a las ` +
-        `${horario(enConflicto.inicio)} (${enConflicto.duracionMinutos} min). Entre una función ` +
+      `La sala ${sala.nombre} ya tiene la función de "${enConflicto.titulo}" el ` +
+        `${formatearFecha(enConflicto.inicio)} (${enConflicto.duracionMinutos} min). Entre una función ` +
         `y la siguiente tienen que quedar al menos ${MARGEN_ENTRE_FUNCIONES_MINUTOS} minutos`,
     );
   }

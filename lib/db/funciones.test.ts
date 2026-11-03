@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ErrorDeConflicto, ErrorNoEncontrado } from "@/lib/errores";
+import { formatearFecha } from "@/lib/utils";
 
 const { buscarPelicula, buscarSala, buscarFunciones, crear, buscarFuncion, buscarButacas, buscarEntradas } =
   vi.hoisted(() => ({
@@ -93,7 +94,8 @@ describe("crearFuncion", () => {
     ]);
 
     await expect(crearFuncion({ ...datos, inicio: alas(21) })).rejects.toThrow(
-      'La sala Sala 1 ya tiene la función de "Duna" a las 2030-01-01T20:00:00.000Z (120 min). ' +
+      // En hora argentina, como lo lee el gestor en la pantalla (20:00 UTC → 17:00).
+      `La sala Sala 1 ya tiene la función de "Duna" el ${formatearFecha(alas(20))} (120 min). ` +
         "Entre una función y la siguiente tienen que quedar al menos 15 minutos",
     );
   });
