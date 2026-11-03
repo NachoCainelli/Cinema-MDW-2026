@@ -26,8 +26,20 @@ describe("desdeHoraDelCine", () => {
 });
 
 describe("formatearPrecio", () => {
-  it("muestra pesos con separador de miles y sin centavos", () => {
-    // `toLocaleString` separa el signo con un espacio duro (U+00A0).
-    expect(formatearPrecio(10000).replace(/\s/g, " ")).toBe("$ 10.000");
+  it("muestra pesos con separador de miles y un espacio duro (U+00A0) después del signo", () => {
+    expect(formatearPrecio(10000)).toBe("$\u00a010.000");
+  });
+
+  it.each([
+    [0, "$\u00a00"],
+    [999, "$\u00a0999"],
+    [1000, "$\u00a01.000"],
+    [1234567, "$\u00a01.234.567"],
+  ])("formatea %d como %s", (monto, esperado) => {
+    expect(formatearPrecio(monto)).toBe(esperado);
+  });
+
+  it("redondea a pesos enteros", () => {
+    expect(formatearPrecio(9999.6)).toBe("$\u00a010.000");
   });
 });

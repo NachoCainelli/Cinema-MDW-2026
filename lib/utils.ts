@@ -24,13 +24,21 @@ export function formatearFecha(fecha: Date): string {
   });
 }
 
-/** Un monto en pesos, como se lo lee en Argentina: "$ 10.000". Sin centavos: el precio es entero. */
+/**
+ * Un monto en pesos, como se lo lee en Argentina: "$ 10.000". Sin centavos: el
+ * precio es entero.
+ *
+ * No usa `toLocaleString`: lo llama un Client Component que también se
+ * renderiza en el servidor, y el espacio entre "$" y el número cambia según la
+ * versión de ICU de cada motor (Node, Chrome, Safari). Si el texto del servidor
+ * no coincide con el del navegador, React avisa de un error de hidratación. Con
+ * el formato armado a mano, los dos lados dan exactamente el mismo string.
+ */
 export function formatearPrecio(monto: number): string {
-  return monto.toLocaleString("es-AR", {
-    style: "currency",
-    currency: "ARS",
-    maximumFractionDigits: 0,
-  });
+  const conMiles = Math.round(monto)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return `$\u00a0${conMiles}`;
 }
 
 /**
