@@ -17,7 +17,11 @@ import { z } from "zod";
 export const estadoCompraSchema = z.enum(["PAGADA"]);
 export type EstadoCompra = z.infer<typeof estadoCompraSchema>;
 
-/** Tope de butacas por compra. La pantalla de compra lo usa para no dejar elegir más. */
+/**
+ * Tope de butacas por compra. Es el único lugar donde vive: la pantalla de
+ * compra lo usa para no dejar elegir más, y `lib/db/compras.ts` como `take` de
+ * las consultas sobre las butacas de una compra.
+ */
 export const MAXIMO_BUTACAS_POR_COMPRA = 10;
 
 export const crearCompraSchema = z.object({

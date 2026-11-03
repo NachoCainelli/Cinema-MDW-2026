@@ -15,16 +15,14 @@ import { etiquetaDeButaca, funcionYaEmpezo, veredictoDeButacas } from "@/lib/but
 import { prisma } from "@/lib/db/client";
 import { ErrorDeConflicto, ErrorDePagoRechazado, ErrorNoEncontrado } from "@/lib/errores";
 import { PRECIO_ENTRADA, cobrar } from "@/lib/pagos";
-import type { CrearCompraInput, HistorialQuery } from "@/lib/schemas/compra";
+import {
+  MAXIMO_BUTACAS_POR_COMPRA,
+  type CrearCompraInput,
+  type HistorialQuery,
+} from "@/lib/schemas/compra";
 
 /** Código de Prisma para "violaste una restricción de unicidad". */
 const VIOLACION_DE_UNICIDAD = "P2002";
-
-/**
- * Tope de entradas de una compra: `crearCompraSchema` no admite más de 10
- * butacas por compra.
- */
-const MAXIMO_ENTRADAS_POR_COMPRA = 10;
 
 /**
  * Los datos de la función se copian en la respuesta del historial tal como
@@ -49,7 +47,7 @@ const camposDeCompra = {
       },
     },
     orderBy: [{ butaca: { fila: "asc" } }, { butaca: { columna: "asc" } }],
-    take: MAXIMO_ENTRADAS_POR_COMPRA,
+    take: MAXIMO_BUTACAS_POR_COMPRA,
   },
 } satisfies Prisma.CompraSelect;
 
@@ -101,12 +99,12 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
     prisma.butaca.findMany({
       where: { id: { in: datos.butacaIds }, salaId: funcion.salaId },
       select: { id: true, fila: true, columna: true },
-      take: MAXIMO_ENTRADAS_POR_COMPRA,
+      take: MAXIMO_BUTACAS_POR_COMPRA,
     }),
     prisma.entrada.findMany({
       where: { funcionId: funcion.id, butacaId: { in: datos.butacaIds } },
       select: { butacaId: true },
-      take: MAXIMO_ENTRADAS_POR_COMPRA,
+      take: MAXIMO_BUTACAS_POR_COMPRA,
     }),
   ]);
 
@@ -154,7 +152,7 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
       const seAdelantaron = await tx.entrada.findMany({
         where: { funcionId: funcion.id, butacaId: { in: datos.butacaIds } },
         select: { butacaId: true },
-        take: MAXIMO_ENTRADAS_POR_COMPRA,
+        take: MAXIMO_BUTACAS_POR_COMPRA,
       });
       if (seAdelantaron.length > 0) {
         throw conflictoPorOcupadas(seAdelantaron.map((entrada) => entrada.butacaId));
