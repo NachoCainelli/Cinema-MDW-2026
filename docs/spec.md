@@ -186,7 +186,7 @@ las que la requieren, en `app/(app)/`.
 | 2 | — (pasa en el servidor: la función creada ya figura en la cartelera) | — | — | — | No es una pantalla |
 | 3 | Registrarse | `/registrarse` | Sin sesión | `(public)` | Sin pantalla todavía |
 | 3 | Ingresar | `/ingresar` | Sin sesión | `(public)` | Existe (`pages.signIn` de Auth.js apunta acá) |
-| 4 | Cartelera | `/cartelera` | Cualquiera, con o sin sesión | `(public)` | Sin pantalla todavía |
+| 4 | Cartelera | `/cartelera` | Cualquiera, con o sin sesión | `(public)` | Existe (PR #81) |
 | 5 | Butacas de la función | `/funciones/[id]` | Cualquiera ve las butacas; elegir y comprar requiere `USUARIO` | `(public)` | Sin pantalla todavía |
 | 6 | Confirmar compra | `/funciones/[id]` (misma pantalla que el paso 5) | `USUARIO` | `(public)` | Sin pantalla todavía |
 | 7 | — (pasa en el servidor: `POST /api/compras` procesa el pago y genera la Compra) | — | — | — | No es una pantalla |
