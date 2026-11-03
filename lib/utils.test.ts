@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { desdeHoraDelCine } from "@/lib/utils";
+import { desdeHoraDelCine, formatearPrecio } from "@/lib/utils";
 
 describe("desdeHoraDelCine", () => {
   it("interpreta la hora del datetime-local en hora argentina (UTC-3)", () => {
@@ -23,4 +23,11 @@ describe("desdeHoraDelCine", () => {
       expect(desdeHoraDelCine(valor)).toBe(valor);
     },
   );
+});
+
+describe("formatearPrecio", () => {
+  it("muestra pesos con separador de miles y sin centavos", () => {
+    // `toLocaleString` separa el signo con un espacio duro (U+00A0).
+    expect(formatearPrecio(10000).replace(/\s/g, " ")).toBe("$ 10.000");
+  });
 });

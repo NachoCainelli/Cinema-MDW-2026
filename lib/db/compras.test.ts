@@ -63,7 +63,9 @@ function violacionDeUnicidad() {
 beforeEach(() => {
   vi.clearAllMocks();
   buscarFuncion.mockResolvedValue({ ...funcion });
-  buscarButacas.mockResolvedValue(datos.butacaIds.map((id) => ({ id })));
+  buscarButacas.mockResolvedValue(
+    datos.butacaIds.map((id, indice) => ({ id, fila: 1, columna: indice + 1 })),
+  );
   buscarEntradas.mockResolvedValue([]);
   crear.mockResolvedValue(compraCreada);
   cobrar.mockResolvedValue({ aprobado: true });
@@ -136,6 +138,25 @@ describe("crearCompra", () => {
 
       await expect(crearCompra(datos, usuarioId)).rejects.toThrow(/ya fue vendida/);
       expect(cobrar).not.toHaveBeenCalled();
+      expect(crear).not.toHaveBeenCalled();
+    });
+
+    it("dice qué butacas se perdieron, para que el formulario conserve el resto", async () => {
+      buscarEntradas.mockResolvedValue([{ butacaId: "but_2" }]);
+
+      const error = await crearCompra(datos, usuarioId).catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(ErrorDeConflicto);
+      expect((error as ErrorDeConflicto).detalles).toEqual(["Fila 1 · Butaca 2"]);
+    });
+
+    it("también nombra las butacas que se vendieron mientras se cobraba", async () => {
+      // Libres al verificar; ocupadas cuando la transacción vuelve a mirar.
+      buscarEntradas.mockResolvedValueOnce([]).mockResolvedValueOnce([{ butacaId: "but_1" }]);
+
+      const error = await crearCompra(datos, usuarioId).catch((e: unknown) => e);
+
+      expect((error as ErrorDeConflicto).detalles).toEqual(["Fila 1 · Butaca 1"]);
       expect(crear).not.toHaveBeenCalled();
     });
 

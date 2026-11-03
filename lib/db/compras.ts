@@ -11,7 +11,7 @@
  */
 import { Prisma } from "@prisma/client";
 
-import { funcionYaEmpezo, veredictoDeButacas } from "@/lib/butacas";
+import { etiquetaDeButaca, funcionYaEmpezo, veredictoDeButacas } from "@/lib/butacas";
 import { prisma } from "@/lib/db/client";
 import { ErrorDeConflicto, ErrorDePagoRechazado, ErrorNoEncontrado } from "@/lib/errores";
 import { PRECIO_ENTRADA, cobrar } from "@/lib/pagos";
@@ -100,7 +100,7 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
   const [butacas, vendidas] = await Promise.all([
     prisma.butaca.findMany({
       where: { id: { in: datos.butacaIds }, salaId: funcion.salaId },
-      select: { id: true },
+      select: { id: true, fila: true, columna: true },
       take: MAXIMO_ENTRADAS_POR_COMPRA,
     }),
     prisma.entrada.findMany({
@@ -124,7 +124,16 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
     );
   }
 
-  if (ocupadas.length > 0) throw new ErrorDeConflicto(mensajeDeButacasOcupadas(ocupadas.length));
+  // Con qué nombre se le dice a la persona qué butacas perdió: el formulario
+  // las lista en `detalles` y le deja elegida el resto.
+  const etiquetas = new Map(butacas.map((butaca) => [butaca.id, etiquetaDeButaca(butaca)]));
+  const conflictoPorOcupadas = (ids: string[]) =>
+    new ErrorDeConflicto(
+      mensajeDeButacasOcupadas(ids.length),
+      ids.map((id) => etiquetas.get(id) ?? id),
+    );
+
+  if (ocupadas.length > 0) throw conflictoPorOcupadas(ocupadas);
 
   // El cobro va afuera de la transacción: dejar la conexión tomada esperando a
   // una pasarela es lo que después tira la base abajo. El precio de sacarlo es
@@ -140,15 +149,15 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
       // confirmó —eso lo corta el índice único, más abajo—. Cubre el caso
       // frecuente: una compra rival que commiteó entre la verificación de
       // arriba y este momento. Esas filas ya están confirmadas, así que se ven,
-      // y el mensaje puede decir cuántas butacas se perdieron en vez del 1 fijo
-      // que informa el camino del índice único.
+      // y el rechazo puede decir cuáles butacas se perdieron en vez del 1 fijo
+      // y sin nombre que informa el camino del índice único.
       const seAdelantaron = await tx.entrada.findMany({
         where: { funcionId: funcion.id, butacaId: { in: datos.butacaIds } },
         select: { butacaId: true },
         take: MAXIMO_ENTRADAS_POR_COMPRA,
       });
       if (seAdelantaron.length > 0) {
-        throw new ErrorDeConflicto(mensajeDeButacasOcupadas(seAdelantaron.length));
+        throw conflictoPorOcupadas(seAdelantaron.map((entrada) => entrada.butacaId));
       }
 
       return tx.compra.create({

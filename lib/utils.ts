@@ -24,6 +24,15 @@ export function formatearFecha(fecha: Date): string {
   });
 }
 
+/** Un monto en pesos, como se lo lee en Argentina: "$ 10.000". Sin centavos: el precio es entero. */
+export function formatearPrecio(monto: number): string {
+  return monto.toLocaleString("es-AR", {
+    style: "currency",
+    currency: "ARS",
+    maximumFractionDigits: 0,
+  });
+}
+
 /**
  * Convierte lo que manda un `<input type="datetime-local">` ("2026-11-10T20:30",
  * sin zona) en el instante que eso significa en el cine, en ISO con zona.

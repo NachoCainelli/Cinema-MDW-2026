@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { funcionYaEmpezo, veredictoDeButacas } from "./butacas";
+import { etiquetaDeButaca, funcionYaEmpezo, veredictoDeButacas } from "./butacas";
 
 /** Butacas de la sala de la función. */
 const sala = ["but_1", "but_2", "but_3", "but_4"];
@@ -48,5 +48,11 @@ describe("funcionYaEmpezo", () => {
 
   it("una función que empezó antes no admite compra", () => {
     expect(funcionYaEmpezo(new Date(ahora.getTime() - 60 * 1000), ahora)).toBe(true);
+  });
+});
+
+describe("etiquetaDeButaca", () => {
+  it("nombra la butaca por fila y número, como en el detalle de la compra", () => {
+    expect(etiquetaDeButaca({ fila: 2, columna: 5 })).toBe("Fila 2 · Butaca 5");
   });
 });

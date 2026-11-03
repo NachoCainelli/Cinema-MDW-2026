@@ -84,6 +84,19 @@ describe("estadoDeError", () => {
     expect(estadoDeError(error)).toEqual({ ok: false, mensaje: error.message });
   });
 
+  it("pasa los detalles de un ErrorDeConflicto, para pintarlos como lista", () => {
+    const error = new ErrorDeConflicto("2 de las butacas ya fueron vendidas", [
+      "Fila 1 · Butaca 3",
+      "Fila 1 · Butaca 4",
+    ]);
+
+    expect(estadoDeError(error)).toEqual({
+      ok: false,
+      mensaje: "2 de las butacas ya fueron vendidas",
+      detalles: ["Fila 1 · Butaca 3", "Fila 1 · Butaca 4"],
+    });
+  });
+
   it("conserva los valores que la persona había escrito", () => {
     const valores = { nombre: "Sala 1", capacidad: "120" };
 

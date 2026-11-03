@@ -23,9 +23,17 @@ export class ErrorNoEncontrado extends ErrorDeNegocio {
   }
 }
 
+/**
+ * `detalles` es lo que el rechazo enumera, cuando hace falta enumerarlo: qué
+ * butacas se vendieron mientras la persona elegía. Va aparte del mensaje para
+ * que el formulario lo pinte como lista (`EstadoDelFormulario.detalles`).
+ */
 export class ErrorDeConflicto extends ErrorDeNegocio {
-  constructor(mensaje: string) {
+  readonly detalles?: string[];
+
+  constructor(mensaje: string, detalles?: string[]) {
     super(mensaje);
+    if (detalles?.length) this.detalles = detalles;
   }
 }
 
