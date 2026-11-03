@@ -51,6 +51,18 @@ Copiar el valor generado en `AUTH_SECRET` dentro de `.env.local`.
 >
 > Las dependencias nuevas que necesiten scripts de instalación quedan bloqueadas hasta que el equipo revise y ejecute `pnpm approve-builds`.
 
+### Si la cartelera de producción aparece vacía
+
+Producción y desarrollo usan **la misma base de Supabase**, y la cartelera solo muestra funciones futuras. Las del seed arrancan mañana y cubren 30 días, así que se vencen si nadie lo vuelve a correr. Para reponerlas:
+
+```bash
+pnpm db:seed
+```
+
+Es seguro re-correrlo: no duplica funciones y saltea los horarios que se pisan con funciones cargadas a mano. Ojo: también vuelve a fijar la contraseña (`SEED_PASSWORD`) y el rol de las cuentas de prueba.
+
+Si en vez de una lista vacía la API responde 500, lo más probable es que el proyecto de Supabase esté pausado: el plan gratuito lo pausa tras ~7 días sin actividad. Se reanuda desde el dashboard de Supabase (**Restore project**) y tarda unos minutos.
+
 Vercel detecta pnpm mediante `pnpm-lock.yaml`. Para que use exactamente la versión declarada en `package.json`, configurar la variable de entorno `ENABLE_EXPERIMENTAL_COREPACK=1` en el proyecto de Vercel; no hace falta sobrescribir el comando de instalación.
 
 ## Comandos
