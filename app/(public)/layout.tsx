@@ -10,11 +10,11 @@ import Link from "next/link";
 import Encabezado from "@/components/Encabezado";
 import { Button } from "@/components/ui/button";
 import { obtenerUsuario } from "@/lib/auth";
-import { linksDelRol } from "@/lib/navegacion";
+import { linksDelRol, linksSinSesion } from "@/lib/navegacion";
 
 export default async function LayoutPublico({ children }: { children: React.ReactNode }) {
   const usuario = await obtenerUsuario();
-  const links = usuario ? linksDelRol(usuario.rol) : [{ href: "/ingresar", etiqueta: "Ingresar" }];
+  const links = usuario ? linksDelRol(usuario.rol) : linksSinSesion();
 
   return (
     <>

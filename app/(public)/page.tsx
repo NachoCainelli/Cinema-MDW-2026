@@ -1,14 +1,13 @@
 /**
  * Home del proyecto.
  *
- * Placeholder mientras se construye la cartelera pública (H3/H4, ver
- * docs/spec.md). El ejemplo de Nota que vivía acá se borró en la clase 3
- * junto con el resto de ese scaffolding (lib/db/notas.ts, lib/schemas/nota.ts,
- * app/api/notas/route.ts).
+ * La home no es la cartelera (mapa de pantallas, `docs/spec.md` §5): la
+ * cartelera tiene su propia dirección, `/cartelera`, y la home la ofrece como
+ * acción principal. El link fijo del encabezado lleva al mismo lugar desde
+ * cualquier pantalla.
  */
 import Link from "next/link";
 
-import SinDatos from "@/components/SinDatos";
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
@@ -16,19 +15,12 @@ export default function Home() {
     <main className="mx-auto max-w-2xl p-8">
       <h1 className="text-2xl font-bold">Cinema MDW 2026</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Equipo: completar en el README y acá.
+        Mirá las próximas funciones y comprá tus entradas eligiendo la butaca.
       </p>
 
-      <Button asChild className="mt-6">
-        <Link href="/compras">Mis compras</Link>
+      <Button asChild className="mt-6 w-full sm:w-auto">
+        <Link href="/cartelera">Ver la cartelera</Link>
       </Button>
-
-      <div className="mt-8">
-        <SinDatos
-          titulo="Cartelera pública — próximamente"
-          explicacion="Acá va a verse la cartelera de funciones (H3) y la compra de entradas (H4) una vez que estén implementadas."
-        />
-      </div>
     </main>
   );
 }

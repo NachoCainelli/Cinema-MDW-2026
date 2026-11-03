@@ -17,6 +17,10 @@ export const ETIQUETA_DE_ROL: Record<Rol, string> = {
   USUARIO: "Usuario",
 };
 
+// La cartelera es el primer link para todos, con o sin sesión: así está "a un
+// clic desde la home y siempre en el mismo lugar" (docs/spec.md §7, Recuerdo).
+const CARTELERA: LinkDeNavegacion = { href: "/cartelera", etiqueta: "Cartelera" };
+
 // Las pantallas del gestor y del administrador (`/gestion/…`, ver el mapa de
 // pantallas en docs/spec.md §5) todavía no existen: cuando existan, sus links
 // se agregan acá y no en la barra.
@@ -27,7 +31,11 @@ const LINKS_DE_ROL: Record<Rol, LinkDeNavegacion[]> = {
 };
 
 export function linksDelRol(rol: Rol): LinkDeNavegacion[] {
-  return LINKS_DE_ROL[rol];
+  return [CARTELERA, ...LINKS_DE_ROL[rol]];
+}
+
+export function linksSinSesion(): LinkDeNavegacion[] {
+  return [CARTELERA, { href: "/ingresar", etiqueta: "Ingresar" }];
 }
 
 /** La dirección del login propio, con la vuelta a donde estaba la persona. */
