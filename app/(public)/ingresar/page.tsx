@@ -8,6 +8,7 @@
  * de la base al iniciar sesión (ADR 0003, `AGENTS.md` Seguridad).
  */
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 
@@ -16,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { obtenerUsuario, signIn } from "@/lib/auth";
-import { urlDeIngreso } from "@/lib/navegacion";
+import { urlDeIngreso, urlDeRegistro } from "@/lib/navegacion";
 import { callbackUrlSchema } from "@/lib/schemas/usuario";
 
 export const metadata: Metadata = {
@@ -109,6 +110,16 @@ export default async function Ingresar({ searchParams }: { searchParams: Paramet
               Ingresar con email
             </Button>
           </form>
+
+          <p className="text-center text-sm text-muted-foreground">
+            ¿No tenés cuenta?{" "}
+            <Link
+              href={urlDeRegistro(destino)}
+              className="font-medium text-foreground underline underline-offset-4"
+            >
+              Creá una
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </main>
