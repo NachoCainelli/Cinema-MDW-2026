@@ -2,18 +2,18 @@
 
 **Equipo:**
 
-- Ignacio Cainelli — responsable del repositorio
-- Rodolfo Meroi
-- Alejandro Santini
-- Gastón Pisana
+- Ignacio Cainelli ([NachoCainelli](https://github.com/NachoCainelli)) — responsable del repositorio
+- Rodolfo Meroi ([RodoM](https://github.com/RodoM))
+- Alejandro Santini ([AlejandroSantini](https://github.com/AlejandroSantini))
+- Gastón Pisana ([jvnaufrago](https://github.com/jvnaufrago))
 
 **Producción:** https://cinema-mdw-2026.vercel.app/
 
 **De qué se trata:** mejorar la gestión de cartelera y venta de entradas en los cines, ya que los sistemas actuales se están quedando obsoletos y todavía hay mucha operación manual. El sistema permite desde la creación y configuración de salas hasta la gestión de cartelera y la compra de entradas para el público.
 
-**Roles:** administrador (configura salas y horarios generales del cine), gestor de cartelera (asigna las películas y sus horarios a las respectivas salas) y usuarios (pueden ver la cartelera y comprar entradas).
+**Roles** ([`docs/spec.md`](docs/spec.md), sección 2): administrador (crea y edita salas y butacas, y crea las cuentas de administrador y de gestor de cartelera), gestor de cartelera (crea películas, las asigna a salas con horario creando funciones y las saca de cartelera) y usuario (se registra por su cuenta, ve la cartelera, compra entradas eligiendo butaca y ve su historial).
 
-**Flujo principal:** los usuarios del cine publican la cartelera y los usuarios finales compran las entradas.
+**Flujo principal:** el gestor de cartelera publica una función (película, sala y horario) y un usuario la elige en la cartelera, selecciona butacas libres, paga (pago simulado) y ve la compra con sus entradas en su historial (detalle paso a paso en [`docs/spec.md`](docs/spec.md), sección 5).
 
 ---
 
@@ -97,6 +97,10 @@ prisma/
   seed.ts               datos de ejemplo
 docs/
   spec.md               qué hace el sistema (requerimientos)
+  api.md                contrato de la API y catálogo de errores
+  permisos.md           matriz de permisos por rol
+  despliegue.md         diagrama de despliegue, con protocolos y puertos
+  trazabilidad.md       un requisito seguido de la historia a la pantalla
   adr/                  decisiones técnicas y por qué
 ```
 
