@@ -14,6 +14,11 @@
  * butaca ocupada. La selección no se toca: lo que se envía es lo elegido que
  * sigue libre, así que la vendida deja de contar sola y el resto queda
  * elegido. Qué butacas se perdieron lo dice `estado.detalles`, arriba.
+ *
+ * Ese aviso habla del intento anterior: en cuanto la persona toca otra butaca,
+ * deja de ser cierto y se oculta. `useActionState` no deja borrar el estado,
+ * así que se recuerda cuál fue el último que la persona ya dejó atrás; el
+ * próximo envío trae un estado nuevo y el aviso vuelve a aparecer.
  */
 "use client";
 
@@ -38,6 +43,8 @@ type Props = {
 export default function SelectorDeButacas({ butacas, precio, comprar }: Props) {
   const [estado, enviar, pendiente] = useActionState(comprar, SIN_ENVIAR);
   const [elegidas, setElegidas] = useState<string[]>([]);
+  const [estadoDejadoAtras, setEstadoDejadoAtras] = useState<EstadoDelFormulario | null>(null);
+  const aviso = estado === estadoDejadoAtras ? undefined : estado.mensaje;
 
   const libres = new Map(butacas.filter((butaca) => !butaca.ocupada).map((b) => [b.id, b]));
   const vigentes = elegidas.filter((id) => libres.has(id));
@@ -45,6 +52,7 @@ export default function SelectorDeButacas({ butacas, precio, comprar }: Props) {
 
   function alternar(id: string) {
     setElegidas(vigentes.includes(id) ? vigentes.filter((otra) => otra !== id) : [...vigentes, id]);
+    setEstadoDejadoAtras(estado);
   }
 
   const resumen = vigentes
@@ -55,11 +63,11 @@ export default function SelectorDeButacas({ butacas, precio, comprar }: Props) {
 
   return (
     <form action={enviar} className="space-y-6">
-      {estado.mensaje ? (
+      {aviso ? (
         <Alert variant="destructive">
           <AlertTitle>No se pudo confirmar la compra</AlertTitle>
           <AlertDescription>
-            <p>{estado.mensaje}</p>
+            <p>{aviso}</p>
             {estado.detalles?.length ? (
               <ul className="mt-1 list-disc pl-5">
                 {estado.detalles.map((detalle) => (
