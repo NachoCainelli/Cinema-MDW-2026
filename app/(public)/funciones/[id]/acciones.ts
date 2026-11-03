@@ -10,6 +10,12 @@
  * `.bind(null, funcion.id)` a partir de la URL. Del formulario solo llegan los
  * `butacaIds`, que son lo único que la persona elige. El usuario sale de la
  * sesión.
+ *
+ * Atarlo con `.bind` no es una garantía: los argumentos atados viajan por el
+ * cliente sin cifrar, y alguien puede llamar a la acción con otro `funcionId`.
+ * No hace falta defenderse acá, porque `crearCompra` vuelve a validar todo lo
+ * que depende de la función (que exista, que no haya empezado, la sala y las
+ * butacas) sin importar de dónde vino el id.
  */
 "use server";
 

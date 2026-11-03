@@ -100,7 +100,9 @@ export default async function ButacasDeFuncion({ params }: { params: Promise<{ i
           <SelectorDeButacas
             butacas={butacas}
             precio={PRECIO_ENTRADA}
-            // El id sale de la URL, no del formulario: el cliente no lo elige.
+            // El id sale de la URL, no de un campo del formulario. Lo atado con
+            // `.bind` igual viaja por el cliente sin cifrar y se puede cambiar:
+            // lo que protege es `crearCompra`, que vuelve a validar la función.
             comprar={comprarEntradasAction.bind(null, funcion.id)}
           />
         ) : (

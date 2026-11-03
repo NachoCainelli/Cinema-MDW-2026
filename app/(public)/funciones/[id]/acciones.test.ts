@@ -63,7 +63,7 @@ describe("comprarEntradasAction", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/compras");
   });
 
-  it("usa el funcionId atado por la página, aunque el formulario traiga otro", async () => {
+  it("ignora un funcionId que venga como campo del formulario", async () => {
     await expect(
       comprarEntradasAction("fun_1", SIN_ENVIAR, formulario(["but_1"], { funcionId: "fun_ajena" })),
     ).rejects.toThrow("NEXT_REDIRECT");
