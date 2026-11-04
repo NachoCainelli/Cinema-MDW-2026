@@ -40,9 +40,15 @@ export type CredencialesInput = z.infer<typeof credencialesSchema>;
 // Solo rutas de este sitio: aceptar "//otro.com" o "https://otro.com"
 // convertiría el login en un redireccionador abierto. Cualquier otra cosa
 // (vacío, un array, una URL externa) vuelve a la home.
+//
+// No alcanza con mirar el segundo carácter: el parser de URL del navegador
+// borra los tabs y saltos de línea de cualquier posición y lee "\" como "/",
+// así que "/\t/otro.com" termina siendo "//otro.com". Por eso se rechaza
+// cualquier espacio o barra invertida en toda la ruta (una ruta legítima los
+// trae codificados: %20, %5C).
 export const callbackUrlSchema = z
   .string()
-  .regex(/^\/(?![/\\])/)
+  .regex(/^\/(?![/\\])[^\s\\]*$/)
   .catch("/");
 
 // Un administrador crea la cuenta de otro administrador o de un gestor de

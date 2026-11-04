@@ -41,3 +41,11 @@ export function linksSinSesion(): LinkDeNavegacion[] {
 export function urlDeIngreso(volverA: string): string {
   return `/ingresar?callbackUrl=${encodeURIComponent(volverA)}`;
 }
+
+/**
+ * La dirección del registro, con la misma vuelta que el login: quien venía a
+ * comprar y no tenía cuenta termina otra vez en la función.
+ */
+export function urlDeRegistro(volverA: string): string {
+  return `/registrarse?callbackUrl=${encodeURIComponent(volverA)}`;
+}

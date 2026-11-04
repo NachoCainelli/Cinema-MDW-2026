@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { linksDelRol, linksSinSesion, urlDeIngreso } from "@/lib/navegacion";
+import { linksDelRol, linksSinSesion, urlDeIngreso, urlDeRegistro } from "@/lib/navegacion";
 
 describe("linksDelRol", () => {
   it("le muestra la cartelera y sus compras a un USUARIO", () => {
@@ -51,5 +51,11 @@ describe("linksSinSesion", () => {
 describe("urlDeIngreso", () => {
   it("manda al login propio con la vuelta codificada", () => {
     expect(urlDeIngreso("/compras/abc")).toBe("/ingresar?callbackUrl=%2Fcompras%2Fabc");
+  });
+});
+
+describe("urlDeRegistro", () => {
+  it("manda al registro con la misma vuelta que el login", () => {
+    expect(urlDeRegistro("/funciones/abc")).toBe("/registrarse?callbackUrl=%2Ffunciones%2Fabc");
   });
 });
