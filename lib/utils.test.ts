@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { desdeHoraDelCine } from "@/lib/utils";
+import { desdeHoraDelCine, formatearPrecio } from "@/lib/utils";
 
 describe("desdeHoraDelCine", () => {
   it("interpreta la hora del datetime-local en hora argentina (UTC-3)", () => {
@@ -23,4 +23,23 @@ describe("desdeHoraDelCine", () => {
       expect(desdeHoraDelCine(valor)).toBe(valor);
     },
   );
+});
+
+describe("formatearPrecio", () => {
+  it("muestra pesos con separador de miles y un espacio duro (U+00A0) después del signo", () => {
+    expect(formatearPrecio(10000)).toBe("$\u00a010.000");
+  });
+
+  it.each([
+    [0, "$\u00a00"],
+    [999, "$\u00a0999"],
+    [1000, "$\u00a01.000"],
+    [1234567, "$\u00a01.234.567"],
+  ])("formatea %d como %s", (monto, esperado) => {
+    expect(formatearPrecio(monto)).toBe(esperado);
+  });
+
+  it("redondea a pesos enteros", () => {
+    expect(formatearPrecio(9999.6)).toBe("$\u00a010.000");
+  });
 });

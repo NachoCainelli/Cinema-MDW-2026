@@ -12,6 +12,14 @@
  * perder la carrera y para poder explicarle qué pasó.
  */
 
+/**
+ * Cómo se nombra una butaca ante la persona: "Fila 2 · Butaca 5". Es el mismo
+ * texto en el mapa, en el rechazo de una compra y en el detalle de la compra.
+ */
+export function etiquetaDeButaca({ fila, columna }: { fila: number; columna: number }) {
+  return `Fila ${fila} · Butaca ${columna}`;
+}
+
 /** Veredicto sobre un pedido de butacas. Las dos listas vacías = se puede cobrar. */
 export type VeredictoDeButacas = { fueraDeSala: string[]; ocupadas: string[] };
 

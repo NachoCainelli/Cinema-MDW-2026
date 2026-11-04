@@ -11,20 +11,18 @@
  */
 import { Prisma } from "@prisma/client";
 
-import { funcionYaEmpezo, veredictoDeButacas } from "@/lib/butacas";
+import { etiquetaDeButaca, funcionYaEmpezo, veredictoDeButacas } from "@/lib/butacas";
 import { prisma } from "@/lib/db/client";
 import { ErrorDeConflicto, ErrorDePagoRechazado, ErrorNoEncontrado } from "@/lib/errores";
 import { PRECIO_ENTRADA, cobrar } from "@/lib/pagos";
-import type { CrearCompraInput, HistorialQuery } from "@/lib/schemas/compra";
+import {
+  MAXIMO_BUTACAS_POR_COMPRA,
+  type CrearCompraInput,
+  type HistorialQuery,
+} from "@/lib/schemas/compra";
 
 /** Código de Prisma para "violaste una restricción de unicidad". */
 const VIOLACION_DE_UNICIDAD = "P2002";
-
-/**
- * Tope de entradas de una compra: `crearCompraSchema` no admite más de 10
- * butacas por compra.
- */
-const MAXIMO_ENTRADAS_POR_COMPRA = 10;
 
 /**
  * Los datos de la función se copian en la respuesta del historial tal como
@@ -49,7 +47,7 @@ const camposDeCompra = {
       },
     },
     orderBy: [{ butaca: { fila: "asc" } }, { butaca: { columna: "asc" } }],
-    take: MAXIMO_ENTRADAS_POR_COMPRA,
+    take: MAXIMO_BUTACAS_POR_COMPRA,
   },
 } satisfies Prisma.CompraSelect;
 
@@ -100,13 +98,13 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
   const [butacas, vendidas] = await Promise.all([
     prisma.butaca.findMany({
       where: { id: { in: datos.butacaIds }, salaId: funcion.salaId },
-      select: { id: true },
-      take: MAXIMO_ENTRADAS_POR_COMPRA,
+      select: { id: true, fila: true, columna: true },
+      take: MAXIMO_BUTACAS_POR_COMPRA,
     }),
     prisma.entrada.findMany({
       where: { funcionId: funcion.id, butacaId: { in: datos.butacaIds } },
       select: { butacaId: true },
-      take: MAXIMO_ENTRADAS_POR_COMPRA,
+      take: MAXIMO_BUTACAS_POR_COMPRA,
     }),
   ]);
 
@@ -124,7 +122,16 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
     );
   }
 
-  if (ocupadas.length > 0) throw new ErrorDeConflicto(mensajeDeButacasOcupadas(ocupadas.length));
+  // Con qué nombre se le dice a la persona qué butacas perdió: el formulario
+  // las lista en `detalles` y le deja elegida el resto.
+  const etiquetas = new Map(butacas.map((butaca) => [butaca.id, etiquetaDeButaca(butaca)]));
+  const conflictoPorOcupadas = (ids: string[]) =>
+    new ErrorDeConflicto(
+      mensajeDeButacasOcupadas(ids.length),
+      ids.map((id) => etiquetas.get(id) ?? id),
+    );
+
+  if (ocupadas.length > 0) throw conflictoPorOcupadas(ocupadas);
 
   // El cobro va afuera de la transacción: dejar la conexión tomada esperando a
   // una pasarela es lo que después tira la base abajo. El precio de sacarlo es
@@ -140,15 +147,15 @@ export async function crearCompra(datos: CrearCompraInput, usuarioId: string) {
       // confirmó —eso lo corta el índice único, más abajo—. Cubre el caso
       // frecuente: una compra rival que commiteó entre la verificación de
       // arriba y este momento. Esas filas ya están confirmadas, así que se ven,
-      // y el mensaje puede decir cuántas butacas se perdieron en vez del 1 fijo
-      // que informa el camino del índice único.
+      // y el rechazo puede decir cuáles butacas se perdieron en vez del 1 fijo
+      // y sin nombre que informa el camino del índice único.
       const seAdelantaron = await tx.entrada.findMany({
         where: { funcionId: funcion.id, butacaId: { in: datos.butacaIds } },
         select: { butacaId: true },
-        take: MAXIMO_ENTRADAS_POR_COMPRA,
+        take: MAXIMO_BUTACAS_POR_COMPRA,
       });
       if (seAdelantaron.length > 0) {
-        throw new ErrorDeConflicto(mensajeDeButacasOcupadas(seAdelantaron.length));
+        throw conflictoPorOcupadas(seAdelantaron.map((entrada) => entrada.butacaId));
       }
 
       return tx.compra.create({

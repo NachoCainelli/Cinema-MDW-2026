@@ -77,7 +77,7 @@ export const SIN_ENVIAR: EstadoDelFormulario = { ok: false };
  *
  *   ZodError                         → `errores` por campo (el 400)
  *   ErrorNoEncontrado                → `mensaje` arriba del formulario (404)
- *   ErrorDeConflicto                 → `mensaje` (409)
+ *   ErrorDeConflicto                 → `mensaje` y, si los trae, `detalles` (409)
  *   ErrorDePagoRechazado             → `mensaje` (402)
  *   ErrorDeServicioExterno           → `mensaje` (502)
  *   cualquier otro                   → se re-lanza tal cual
@@ -118,9 +118,13 @@ export function estadoDeError(
     return { ok: false, errores, ...(mensaje ? { mensaje } : {}), ...conValores };
   }
 
+  if (error instanceof ErrorDeConflicto) {
+    const detalles = error.detalles ? { detalles: error.detalles } : {};
+    return { ok: false, mensaje: error.message, ...detalles, ...conValores };
+  }
+
   if (
     error instanceof ErrorNoEncontrado ||
-    error instanceof ErrorDeConflicto ||
     error instanceof ErrorDePagoRechazado ||
     error instanceof ErrorDeServicioExterno
   ) {

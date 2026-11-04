@@ -17,12 +17,22 @@ import { z } from "zod";
 export const estadoCompraSchema = z.enum(["PAGADA"]);
 export type EstadoCompra = z.infer<typeof estadoCompraSchema>;
 
+/**
+ * Tope de butacas por compra. Es el único lugar donde vive: la pantalla de
+ * compra lo usa para no dejar elegir más, y `lib/db/compras.ts` como `take` de
+ * las consultas sobre las butacas de una compra.
+ */
+export const MAXIMO_BUTACAS_POR_COMPRA = 10;
+
 export const crearCompraSchema = z.object({
   funcionId: z.string().min(1, "Falta la función"),
   butacaIds: z
     .array(z.string().min(1))
     .min(1, "Tenés que seleccionar al menos una butaca")
-    .max(10, "No se pueden comprar más de 10 butacas en una sola compra")
+    .max(
+      MAXIMO_BUTACAS_POR_COMPRA,
+      `No se pueden comprar más de ${MAXIMO_BUTACAS_POR_COMPRA} butacas en una sola compra`,
+    )
     .refine(
       (ids) => new Set(ids).size === ids.length,
       "No se puede seleccionar la misma butaca dos veces",

@@ -12,6 +12,7 @@
  * funciones) lo decide la página antes de renderizar esto; acá hay funciones
  * pero ninguna coincide con lo buscado, y eso solo lo sabe este componente.
  */
+import Link from "next/link";
 import { useId, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +67,9 @@ export default function BuscadorCartelera({ funciones }: { funciones: FuncionDeC
           {visibles.map((funcion) => (
             <li key={funcion.id}>
               {/* `pt-0`: la tarjeta siempre arranca con el póster (o su lugar vacío), pegado al borde. */}
-              <Card className="h-full pt-0">
+              {/* `relative` + el `after:` del link: toda la tarjeta es el link a la
+                  función, pero el lector de pantalla anuncia un solo link, con el título. */}
+              <Card className="relative h-full pt-0 has-focus-visible:ring-3 has-focus-visible:ring-ring/50">
                 {funcion.imagenUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- URL dinámica del bucket de Storage (`SUPABASE_URL`), sin dominio fijo para configurar en next.config.
                   <img
@@ -79,7 +82,19 @@ export default function BuscadorCartelera({ funciones }: { funciones: FuncionDeC
                   <div aria-hidden="true" className="aspect-2/3 w-full bg-muted" />
                 )}
                 <CardHeader>
-                  <CardTitle className="line-clamp-2">{funcion.titulo}</CardTitle>
+                  <CardTitle className="line-clamp-2">
+                    <Link
+                      href={`/funciones/${funcion.id}`}
+                      className="outline-none after:absolute after:inset-0 hover:underline"
+                    >
+                      {funcion.titulo}
+                      {/* Hay varias funciones de la misma película: sin esto, el lector
+                          anunciaría varios links iguales. */}
+                      <span className="sr-only">
+                        , {funcion.sala}, {funcion.horario}
+                      </span>
+                    </Link>
+                  </CardTitle>
                   <CardDescription>
                     {funcion.sala} · {funcion.horario}
                   </CardDescription>

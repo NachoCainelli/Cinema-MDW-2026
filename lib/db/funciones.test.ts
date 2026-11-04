@@ -3,8 +3,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ErrorDeConflicto, ErrorNoEncontrado } from "@/lib/errores";
 import { formatearFecha } from "@/lib/utils";
 
-const { buscarPelicula, buscarSala, buscarFunciones, crear, buscarFuncion, buscarButacas, buscarEntradas } =
+const {
+  buscarPelicula,
+  buscarSala,
+  buscarFunciones,
+  crear,
+  buscarFuncion,
+  buscarFuncionPublicada,
+  buscarButacas,
+  buscarEntradas,
+} =
   vi.hoisted(() => ({
+    buscarFuncionPublicada: vi.fn(),
     buscarPelicula: vi.fn(),
     buscarSala: vi.fn(),
     buscarFunciones: vi.fn(),
@@ -18,13 +28,19 @@ vi.mock("@/lib/db/client", () => ({
   prisma: {
     pelicula: { findUnique: buscarPelicula },
     sala: { findUnique: buscarSala },
-    funcion: { findMany: buscarFunciones, create: crear, findUnique: buscarFuncion },
+    funcion: {
+      findMany: buscarFunciones,
+      create: crear,
+      findUnique: buscarFuncion,
+      findFirst: buscarFuncionPublicada,
+    },
     butaca: { findMany: buscarButacas },
     entrada: { findMany: buscarEntradas },
   },
 }));
 
-const { crearFuncion, listarCartelera, listarButacasDeFuncion } = await import("./funciones");
+const { crearFuncion, listarCartelera, listarButacasDeFuncion, listarButacasDeFuncionPublicada } =
+  await import("./funciones");
 
 const UN_MINUTO_EN_MS = 60 * 1000;
 
@@ -205,5 +221,48 @@ describe("listarButacasDeFuncion", () => {
     buscarFuncion.mockResolvedValue(null);
 
     await expect(listarButacasDeFuncion("fantasma")).rejects.toBeInstanceOf(ErrorNoEncontrado);
+  });
+});
+
+describe("listarButacasDeFuncionPublicada", () => {
+  const funcion = {
+    id: "fun_1",
+    inicio: alas(20),
+    pelicula: { id: pelicula.id, titulo: pelicula.titulo },
+    sala: { id: sala.id, nombre: sala.nombre },
+  };
+
+  beforeEach(() => {
+    buscarFuncionPublicada.mockResolvedValue(funcion);
+    buscarButacas.mockResolvedValue([{ id: "but_1", fila: 1, columna: 1 }]);
+    buscarEntradas.mockResolvedValue([]);
+  });
+
+  it("busca por id con el mismo criterio que la cartelera", async () => {
+    await listarButacasDeFuncionPublicada("fun_1");
+
+    const argumento = buscarFuncionPublicada.mock.calls[0]?.[0];
+    expect(argumento.where).toMatchObject({
+      id: "fun_1",
+      sala: { eliminadaEn: null },
+      pelicula: { bajaEn: null },
+    });
+    expect(argumento.where.inicio.gte).toBeInstanceOf(Date);
+  });
+
+  it("devuelve la función con sus butacas y su estado", async () => {
+    await expect(listarButacasDeFuncionPublicada("fun_1")).resolves.toEqual({
+      funcion,
+      butacas: [{ id: "but_1", fila: 1, columna: 1, ocupada: false }],
+    });
+  });
+
+  it("responde 404 si la función no existe o no está publicada", async () => {
+    buscarFuncionPublicada.mockResolvedValue(null);
+
+    await expect(listarButacasDeFuncionPublicada("fun_1")).rejects.toBeInstanceOf(
+      ErrorNoEncontrado,
+    );
+    expect(buscarButacas).not.toHaveBeenCalled();
   });
 });

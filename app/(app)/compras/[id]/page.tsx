@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { obtenerUsuario } from "@/lib/auth";
+import { etiquetaDeButaca } from "@/lib/butacas";
 import { obtenerCompraDeUsuario } from "@/lib/db/compras";
 import { ErrorNoEncontrado } from "@/lib/errores";
 import { urlDeIngreso } from "@/lib/navegacion";
@@ -84,7 +85,7 @@ export default async function DetalleCompra({ params }: { params: Promise<{ id: 
             {compra.entradas.map((entrada) => (
               <li key={entrada.id}>
                 <Badge variant="outline">
-                  Fila {entrada.butaca.fila} · Butaca {entrada.butaca.columna}
+                  {etiquetaDeButaca(entrada.butaca)}
                 </Badge>
               </li>
             ))}

@@ -6,6 +6,8 @@
  * puede validar con Zod porque depende de las funciones ya guardadas: acá se
  * consultan, se le pasan a la regla y su veredicto se traduce a un error.
  */
+import type { Prisma } from "@prisma/client";
+
 import { veredictoDeButacas } from "@/lib/butacas";
 import {
   finConMargen,
@@ -188,19 +190,27 @@ export async function crearFuncion(datos: CrearFuncionInput) {
 }
 
 /**
- * Cartelera pública: solo lo que alguien puede ir a ver hoy. Quedan afuera las
- * funciones que ya empezaron, las de salas eliminadas y las de películas dadas
- * de baja —las tres siguen existiendo para el historial (H5 y H6), pero no se
- * publican. Usa `camposDeFuncionPublicos`, no el que ve el gestor: ver el
- * comentario de esa constante.
+ * Qué es una función publicada: una que todavía no empezó, de una sala
+ * vigente y de una película en cartelera. Las otras siguen existiendo para el
+ * historial (H5 y H6), pero no se publican. Es una función y no una constante
+ * porque "todavía no empezó" se mide contra el momento de cada consulta.
+ */
+function funcionPublicada() {
+  return {
+    inicio: { gte: new Date() },
+    sala: { eliminadaEn: null },
+    pelicula: { bajaEn: null },
+  } satisfies Prisma.FuncionWhereInput;
+}
+
+/**
+ * Cartelera pública: solo lo que alguien puede ir a ver hoy (`funcionPublicada`).
+ * Usa `camposDeFuncionPublicos`, no el que ve el gestor: ver el comentario de
+ * esa constante.
  */
 export async function listarCartelera({ limite }: CarteleraQuery) {
   return prisma.funcion.findMany({
-    where: {
-      inicio: { gte: new Date() },
-      sala: { eliminadaEn: null },
-      pelicula: { bajaEn: null },
-    },
+    where: funcionPublicada(),
     select: camposDeFuncionPublicos,
     orderBy: { inicio: "asc" },
     take: limite,
@@ -223,6 +233,30 @@ export async function listarButacasDeFuncion(funcionId: string) {
   });
   if (!funcion) throw new ErrorNoEncontrado("No existe la función indicada");
 
+  return { funcion, butacas: await butacasConEstado(funcion) };
+}
+
+/**
+ * Lo mismo que `listarButacasDeFuncion`, pero solo si la función está
+ * publicada: es lo que muestra `/funciones/[id]`, la pantalla de compra. Una
+ * función que ya empezó, o de una sala eliminada o una película dada de baja,
+ * no está en la cartelera y tampoco se puede abrir por su dirección: responde
+ * lo mismo que una que no existe.
+ *
+ * `GET /api/funciones/:id/butacas` sigue usando `listarButacasDeFuncion`, sin
+ * este filtro: cambiarle el contrato no es parte de esta pantalla.
+ */
+export async function listarButacasDeFuncionPublicada(funcionId: string) {
+  const funcion = await prisma.funcion.findFirst({
+    where: { id: funcionId, ...funcionPublicada() },
+    select: camposDeFuncionPublicos,
+  });
+  if (!funcion) throw new ErrorNoEncontrado("No existe la función indicada");
+
+  return { funcion, butacas: await butacasConEstado(funcion) };
+}
+
+async function butacasConEstado(funcion: { id: string; sala: { id: string } }) {
   const [butacas, vendidas] = await Promise.all([
     prisma.butaca.findMany({
       where: { salaId: funcion.sala.id },
@@ -247,8 +281,5 @@ export async function listarButacasDeFuncion(funcionId: string) {
   );
   const ocupadasPorId = new Set(ocupadas);
 
-  return {
-    funcion,
-    butacas: butacas.map((butaca) => ({ ...butaca, ocupada: ocupadasPorId.has(butaca.id) })),
-  };
+  return butacas.map((butaca) => ({ ...butaca, ocupada: ocupadasPorId.has(butaca.id) }));
 }
