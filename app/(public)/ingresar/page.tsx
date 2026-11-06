@@ -29,7 +29,7 @@ import FormularioIngreso from "./FormularioIngreso";
 import { mensajeDeErrorDeIngreso } from "./mensajes";
 
 export const metadata: Metadata = {
-  title: "Ingresar · Cinema MDW 2026",
+  title: "Ingresar · Interamericana Cines",
 };
 
 type Parametros = Promise<{ callbackUrl?: string | string[]; error?: string | string[] }>;

@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 export default function Home() {
   return (
     <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-bold">Cinema MDW 2026</h1>
+      <h1 className="text-2xl font-bold">Interamericana Cines</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Mirá las próximas funciones y comprá tus entradas eligiendo la butaca.
       </p>

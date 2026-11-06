@@ -36,7 +36,7 @@ import MapaDeButacas from "./MapaDeButacas";
 import SelectorDeButacas from "./SelectorDeButacas";
 
 export const metadata: Metadata = {
-  title: "Elegir butacas · Cinema MDW 2026",
+  title: "Elegir butacas · Interamericana Cines",
 };
 
 async function buscarFuncion(id: string) {

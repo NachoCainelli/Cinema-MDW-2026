@@ -23,7 +23,7 @@ import { urlDeIngreso } from "@/lib/navegacion";
 import FormularioNuevaFuncion from "./FormularioNuevaFuncion";
 
 export const metadata: Metadata = {
-  title: "Nueva función · Cinema MDW 2026",
+  title: "Nueva función · Interamericana Cines",
 };
 
 // El máximo que aceptan `peliculasQuerySchema` y `salasQuerySchema`.
