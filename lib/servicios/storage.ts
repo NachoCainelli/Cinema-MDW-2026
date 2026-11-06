@@ -22,7 +22,18 @@
  */
 
 const BUCKET = "posters";
-const TIMEOUT_MS = 5_000;
+
+/**
+ * Cuánto se espera a que Storage conteste, además de lo que tarda en viajar el
+ * archivo. Es lo que ya se esperaba antes para cualquier subida.
+ */
+const TIMEOUT_BASE_MS = 5_000;
+
+/**
+ * La velocidad más baja que se considera "sigue subiendo": 256 KB/s. Por debajo
+ * de esto, la subida se trata como una falla más.
+ */
+const BYTES_POR_MS_MINIMOS = (256 * 1024) / 1000;
 
 const EXTENSION_POR_TIPO: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -33,6 +44,19 @@ const EXTENSION_POR_TIPO: Record<string, string> = {
 function nombreDeArchivo(archivo: File) {
   const extension = EXTENSION_POR_TIPO[archivo.type] ?? "jpg";
   return `${crypto.randomUUID()}.${extension}`;
+}
+
+/**
+ * El plazo de una subida, escalado según el tamaño del archivo.
+ *
+ * `fetch` no separa "subir el cuerpo" de "esperar la respuesta": `AbortSignal`
+ * corta todo el request. Por eso no hay dos timeouts, sino uno solo que le da
+ * tiempo al archivo para viajar. Con un plazo fijo, un póster de 5 MB en una
+ * conexión lenta daba 502 aunque Storage anduviera bien. Sigue habiendo un tope:
+ * `imagenSchema` no deja pasar más de 5 MB, así que el plazo no supera los 25 s.
+ */
+export function timeoutDeSubida(bytes: number): number {
+  return TIMEOUT_BASE_MS + Math.ceil(bytes / BYTES_POR_MS_MINIMOS);
 }
 
 /**
@@ -61,7 +85,7 @@ export async function subirImagen(archivo: File): Promise<string | null> {
         "Content-Type": archivo.type,
       },
       body: archivo,
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutDeSubida(archivo.size)),
     });
 
     if (!respuesta.ok) {

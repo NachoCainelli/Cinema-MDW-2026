@@ -6,6 +6,10 @@ import { ErrorDeServicioExterno } from "@/lib/errores";
 import { imagenSchema } from "@/lib/schemas/imagen";
 import { subirImagen } from "@/lib/servicios/storage";
 
+// Por encima de los 25 s que `subirImagen` puede esperar con el archivo más
+// grande: si la plataforma cortara antes, la falla no llegaría al log ni al 502.
+export const maxDuration = 30;
+
 /**
  * POST /api/peliculas/imagen — sube el póster de una película al bucket
  * público de Supabase Storage y devuelve su URL (spec, sección 8).
