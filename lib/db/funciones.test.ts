@@ -161,17 +161,70 @@ describe("crearFuncion", () => {
 });
 
 describe("listarCartelera", () => {
+  /** `cantidad` funciones de mentira, que es lo único que mira el paginado. */
+  function funciones(cantidad: number) {
+    return Array.from({ length: cantidad }, (_, indice) => ({ id: `fun_${indice + 1}` }));
+  }
+
   it("publica solo funciones futuras de salas vigentes y películas en cartelera", async () => {
     buscarFunciones.mockResolvedValue([]);
 
-    await listarCartelera({ limite: 50 });
+    await listarCartelera({ q: undefined, pagina: 1, limite: 50 });
 
     const argumento = buscarFunciones.mock.calls[0]?.[0];
     expect(argumento.where.sala).toEqual({ eliminadaEn: null });
     expect(argumento.where.pelicula).toEqual({ bajaEn: null });
     expect(argumento.where.inicio.gte).toBeInstanceOf(Date);
-    expect(argumento.take).toBe(50);
     expect(argumento.select).toBeDefined();
+  });
+
+  it("filtra por título sin distinguir mayúsculas, sin perder el filtro de película en cartelera", async () => {
+    buscarFunciones.mockResolvedValue([]);
+
+    await listarCartelera({ q: "duna", pagina: 1, limite: 50 });
+
+    const argumento = buscarFunciones.mock.calls[0]?.[0];
+    expect(argumento.where.pelicula).toEqual({
+      bajaEn: null,
+      titulo: { contains: "duna", mode: "insensitive" },
+    });
+    expect(argumento.where.sala).toEqual({ eliminadaEn: null });
+  });
+
+  it("ordena por inicio y desempata por id, para que las páginas no se pisen", async () => {
+    buscarFunciones.mockResolvedValue([]);
+
+    await listarCartelera({ q: undefined, pagina: 1, limite: 50 });
+
+    expect(buscarFunciones.mock.calls[0]?.[0].orderBy).toEqual([{ inicio: "asc" }, { id: "asc" }]);
+  });
+
+  it("saltea las páginas anteriores y pide una función de más", async () => {
+    buscarFunciones.mockResolvedValue([]);
+
+    await listarCartelera({ q: undefined, pagina: 3, limite: 10 });
+
+    const argumento = buscarFunciones.mock.calls[0]?.[0];
+    expect(argumento.skip).toBe(20);
+    expect(argumento.take).toBe(11);
+  });
+
+  it("con la función de más, avisa que hay otra página y no la devuelve", async () => {
+    buscarFunciones.mockResolvedValue(funciones(11));
+
+    const resultado = await listarCartelera({ q: undefined, pagina: 1, limite: 10 });
+
+    expect(resultado.hayMas).toBe(true);
+    expect(resultado.funciones).toHaveLength(10);
+    expect(resultado.funciones.at(-1)).toEqual({ id: "fun_10" });
+  });
+
+  it("sin la función de más, es la última página", async () => {
+    buscarFunciones.mockResolvedValue(funciones(10));
+
+    const resultado = await listarCartelera({ q: undefined, pagina: 1, limite: 10 });
+
+    expect(resultado).toEqual({ funciones: funciones(10), hayMas: false });
   });
 });
 
