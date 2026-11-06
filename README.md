@@ -101,6 +101,7 @@ docs/
   permisos.md           matriz de permisos por rol
   despliegue.md         diagrama de despliegue, con protocolos y puertos
   trazabilidad.md       un requisito seguido de la historia a la pantalla
+  verificacion-compra.md  lo probado a mano en la pantalla de compra
   adr/                  decisiones técnicas y por qué
 ```
 
