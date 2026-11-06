@@ -29,7 +29,7 @@ import { ErrorNoEncontrado } from "@/lib/errores";
 import { urlDeIngreso } from "@/lib/navegacion";
 import { PRECIO_ENTRADA } from "@/lib/pagos";
 import { funcionIdSchema } from "@/lib/schemas/funcion";
-import { formatearFecha } from "@/lib/utils";
+import { ETIQUETAS_DE_CATEGORIA, ETIQUETAS_DE_CLASIFICACION, formatearFecha } from "@/lib/utils";
 
 import { comprarEntradasAction } from "./acciones";
 import MapaDeButacas from "./MapaDeButacas";
@@ -83,8 +83,8 @@ export default async function ButacasDeFuncion({ params }: { params: Promise<{ i
             {funcion.sala.nombre} · {formatearFecha(funcion.inicio)}
           </p>
           <div className="mt-2 flex flex-wrap gap-1">
-            <Badge variant="outline">{funcion.pelicula.clasificacion}</Badge>
-            <Badge variant="outline">{funcion.pelicula.categoria}</Badge>
+            <Badge variant="outline">{ETIQUETAS_DE_CLASIFICACION[funcion.pelicula.clasificacion]}</Badge>
+            <Badge variant="outline">{ETIQUETAS_DE_CATEGORIA[funcion.pelicula.categoria]}</Badge>
             <Badge variant="outline">{funcion.pelicula.duracionMinutos} min</Badge>
           </div>
           <p className="mt-2 text-sm text-muted-foreground">

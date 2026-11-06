@@ -28,14 +28,15 @@ export async function POST(request: Request) {
  * GET /api/funciones — cartelera pública.
  *
  * Sin sesión a propósito: es la vitrina del cine. Devuelve solo funciones
- * futuras de salas vigentes y películas en cartelera.
+ * futuras de salas vigentes y películas en cartelera, filtradas por título
+ * (`q`) y de a `limite` por `pagina`, como `{ funciones, hayMas }`.
  */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const query = carteleraQuerySchema.parse(Object.fromEntries(searchParams)); // 400
-    const funciones = await listarCartelera(query);
-    return NextResponse.json(funciones);
+    const cartelera = await listarCartelera(query);
+    return NextResponse.json(cartelera);
   } catch (error) {
     return respuestaDeError("GET /api/funciones", error);
   }

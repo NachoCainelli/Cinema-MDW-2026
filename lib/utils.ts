@@ -1,6 +1,7 @@
 /**
  * Helpers sin dependencias, compartidos por cualquier capa.
  */
+import type { Categoria, Clasificacion } from "@/lib/schemas/pelicula";
 
 /** Une clases de Tailwind resolviendo conflictos. Lo usan los componentes de shadcn/ui. */
 export { cn } from "cn";
@@ -40,6 +41,31 @@ export function formatearPrecio(monto: number): string {
     .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   return `$\u00a0${conMiles}`;
 }
+
+/**
+ * Cómo se lee cada clasificación en pantalla. La API devuelve el enum tal cual
+ * (`MAS_18`): es el contrato; esto es solo para mostrarlo. Al ser un `Record`
+ * del tipo del schema, agregar un valor al enum sin su texto no compila.
+ */
+export const ETIQUETAS_DE_CLASIFICACION: Record<Clasificacion, string> = {
+  ATP: "ATP",
+  MAS_13: "+13",
+  MAS_16: "+16",
+  MAS_18: "+18",
+};
+
+/** Cómo se lee cada género en pantalla. Mismo criterio que `ETIQUETAS_DE_CLASIFICACION`. */
+export const ETIQUETAS_DE_CATEGORIA: Record<Categoria, string> = {
+  ACCION: "Acción",
+  COMEDIA: "Comedia",
+  DRAMA: "Drama",
+  TERROR: "Terror",
+  CIENCIA_FICCION: "Ciencia ficción",
+  ANIMACION: "Animación",
+  DOCUMENTAL: "Documental",
+  ROMANCE: "Romance",
+  SUSPENSO: "Suspenso",
+};
 
 /**
  * Convierte lo que manda un `<input type="datetime-local">` ("2026-11-10T20:30",

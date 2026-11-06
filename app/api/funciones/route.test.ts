@@ -39,7 +39,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   autorizar.mockResolvedValue(gestor);
   crear.mockResolvedValue(funcionCreada as never);
-  listar.mockResolvedValue([] as never);
+  listar.mockResolvedValue({ funciones: [], hayMas: false } as never);
 });
 
 describe("POST /api/funciones", () => {
@@ -125,20 +125,41 @@ describe("GET /api/funciones", () => {
     expect(autorizar).not.toHaveBeenCalled();
   });
 
-  it("usa el límite por defecto si no viene en la query", async () => {
+  it("responde con las funciones y si hay otra página", async () => {
+    listar.mockResolvedValue({ funciones: [{ id: "fun_1" }], hayMas: true } as never);
+
+    const respuesta = await GET(new Request("http://localhost/api/funciones"));
+
+    await expect(respuesta.json()).resolves.toEqual({ funciones: [{ id: "fun_1" }], hayMas: true });
+  });
+
+  it("usa la primera página, el límite por defecto y ninguna búsqueda si no vienen en la query", async () => {
     await GET(new Request("http://localhost/api/funciones"));
 
-    expect(listar).toHaveBeenCalledWith({ limite: 50 });
+    expect(listar).toHaveBeenCalledWith({ q: undefined, pagina: 1, limite: 50 });
   });
 
   it("respeta el límite que llega por query string", async () => {
     await GET(new Request("http://localhost/api/funciones?limite=10"));
 
-    expect(listar).toHaveBeenCalledWith({ limite: 10 });
+    expect(listar).toHaveBeenCalledWith({ q: undefined, pagina: 1, limite: 10 });
+  });
+
+  it("pasa la búsqueda sin espacios y la página que llegan por query string", async () => {
+    await GET(new Request("http://localhost/api/funciones?q=%20Duna%20&pagina=2"));
+
+    expect(listar).toHaveBeenCalledWith({ q: "Duna", pagina: 2, limite: 50 });
   });
 
   it("responde 400 si el límite no es válido", async () => {
     const respuesta = await GET(new Request("http://localhost/api/funciones?limite=999"));
+
+    expect(respuesta.status).toBe(400);
+    expect(listar).not.toHaveBeenCalled();
+  });
+
+  it("responde 400 si la página no es válida", async () => {
+    const respuesta = await GET(new Request("http://localhost/api/funciones?pagina=0"));
 
     expect(respuesta.status).toBe(400);
     expect(listar).not.toHaveBeenCalled();

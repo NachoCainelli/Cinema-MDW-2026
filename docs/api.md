@@ -80,11 +80,15 @@ falta la configuración— y es este endpoint el que decide qué hacer con ese `
 | Método | Ruta | Qué hace | Rol autorizado | Errores (status + motivo) |
 |---|---|---|---|---|
 | `POST` | `/api/funciones` | Crear función (H3) | GESTOR_CARTELERA | **400** función con fecha/hora en el pasado<br>**401** sin sesión<br>**403** rol incorrecto<br>**404** película o sala inexistente<br>**409** solapamiento de funciones en la misma sala (margen de 15 min)<br>**409** película dada de baja<br>**409** sala eliminada |
-| `GET` | `/api/funciones` | Ver cartelera pública | público | **400** `limite` fuera de rango (1 a 100, por defecto 50) |
+| `GET` | `/api/funciones` | Ver cartelera pública | público | **400** `limite` fuera de rango (1 a 100, por defecto 50)<br>**400** `pagina` fuera de rango (1 a 1000, por defecto 1)<br>**400** `q` de más de 100 caracteres |
 | `GET` | `/api/funciones/:id/butacas` | Ver butacas de una función | público | **404** no existe |
 
 La cartelera pública devuelve solo funciones **futuras**, de salas no eliminadas y de películas en
-cartelera. En `/api/funciones/:id/butacas`, `ocupada` es un valor **calculado**: hay una Entrada de
+cartelera, ordenadas por inicio. Acepta `q` (parte del título de la película, sin distinguir
+mayúsculas; vacío o solo espacios es lo mismo que no mandarlo), `pagina` y `limite`, y responde
+`{ "funciones": [...], "hayMas": true }`: `hayMas` dice si existe la página siguiente
+(`pagina + 1`) con ese mismo `q`. Una `pagina` más allá de la última no es un error: responde 200
+con `funciones: []` y `hayMas: false`. En `/api/funciones/:id/butacas`, `ocupada` es un valor **calculado**: hay una Entrada de
 una Compra `PAGADA` para esa butaca en esa función. No es un atributo de Butaca.
 
 Los dos endpoints públicos de esta sección usan un `select` propio (`camposDeFuncionPublicos` en
@@ -168,7 +172,7 @@ aceptación puntual de `docs/spec.md`. Cada mensaje sale tal cual del código �
 `lib/errores.ts` y de los `throw` de `lib/db/` —, no se resume ni se inventa.
 
 Quedan afuera de esta tabla los endpoints cuyos errores son enteramente transversales: los `GET` de
-listados y de la cartelera (solo el 400 de `limite`), `GET /api/funciones/:id/butacas` (solo el 404
+listados y de la cartelera (solo el 400 de `limite`, y en la cartelera también el de `pagina` y `q`), `GET /api/funciones/:id/butacas` (solo el 404
 genérico), `PATCH /api/peliculas/:id` (400 de Zod y 404 genérico — no hay una historia de usuario
 de "editar película" en el spec) y `POST /api/peliculas/imagen` (400 de `lib/schemas/imagen.ts` —
 falta el archivo, tipo o tamaño inválido —, mismo caso: la subida de imagen tampoco es una historia

@@ -725,7 +725,7 @@ Cookie: {{cookieUsuario}}
 
 # ── H3 · GET /api/funciones (público) ────────────────────────────────────────
 
-### H3 · Cartelera pública → 200, sin sesión, solo funciones futuras
+### H3 · Cartelera pública → 200, sin sesión, solo funciones futuras, como `{ funciones, hayMas }`
 # @name cartelera
 GET {{baseUrl}}/api/funciones?limite=5
 
@@ -735,6 +735,15 @@ GET {{baseUrl}}/api/funciones?limite=999
 ### H3 · Cartelera con un límite que no es un número → 400
 GET {{baseUrl}}/api/funciones?limite=muchas
 
+### H3 · Cartelera buscando por título (sin distinguir mayúsculas) → 200 con `{ funciones, hayMas }`
+GET {{baseUrl}}/api/funciones?q=duna
+
+### H3 · Segunda página de la cartelera → 200; `hayMas` dice si hay una tercera
+GET {{baseUrl}}/api/funciones?limite=5&pagina=2
+
+### H3 · Cartelera con una página que no es válida → 400
+GET {{baseUrl}}/api/funciones?pagina=0
+
 # ── H3 · GET /api/funciones/:id/butacas (público) ────────────────────────────
 # El id de la ruta es cualquier texto no vacío, así que no hay un 400 que se
 # pueda provocar: los casos son éxito e inexistente. Estos dos corren igual en
@@ -742,7 +751,7 @@ GET {{baseUrl}}/api/funciones?limite=muchas
 # de producción está vacía, el primero no tiene id para pedir).
 
 ### H3 · Butacas de la primera función de la cartelera → 200 con cada butaca y su `ocupada`
-GET {{baseUrl}}/api/funciones/{{cartelera.response.body.$[0].id}}/butacas
+GET {{baseUrl}}/api/funciones/{{cartelera.response.body.$.funciones[0].id}}/butacas
 
 ### H3 · Butacas de una función inexistente → 404
 GET {{baseUrl}}/api/funciones/no-existe/butacas

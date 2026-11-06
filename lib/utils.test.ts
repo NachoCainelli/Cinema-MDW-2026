@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { desdeHoraDelCine, formatearPrecio } from "@/lib/utils";
+import { categoriaSchema, clasificacionSchema } from "@/lib/schemas/pelicula";
+import {
+  desdeHoraDelCine,
+  ETIQUETAS_DE_CATEGORIA,
+  ETIQUETAS_DE_CLASIFICACION,
+  formatearPrecio,
+} from "@/lib/utils";
 
 describe("desdeHoraDelCine", () => {
   it("interpreta la hora del datetime-local en hora argentina (UTC-3)", () => {
@@ -41,5 +47,40 @@ describe("formatearPrecio", () => {
 
   it("redondea a pesos enteros", () => {
     expect(formatearPrecio(9999.6)).toBe("$\u00a010.000");
+  });
+});
+
+describe("ETIQUETAS_DE_CLASIFICACION", () => {
+  it("muestra cada clasificación como se lee en un cine", () => {
+    expect(ETIQUETAS_DE_CLASIFICACION).toEqual({
+      ATP: "ATP",
+      MAS_13: "+13",
+      MAS_16: "+16",
+      MAS_18: "+18",
+    });
+  });
+
+  it("tiene un texto para cada valor del enum", () => {
+    expect(Object.keys(ETIQUETAS_DE_CLASIFICACION).sort()).toEqual([...clasificacionSchema.options].sort());
+  });
+});
+
+describe("ETIQUETAS_DE_CATEGORIA", () => {
+  it("muestra cada género con mayúscula inicial y tildes", () => {
+    expect(ETIQUETAS_DE_CATEGORIA).toEqual({
+      ACCION: "Acción",
+      COMEDIA: "Comedia",
+      DRAMA: "Drama",
+      TERROR: "Terror",
+      CIENCIA_FICCION: "Ciencia ficción",
+      ANIMACION: "Animación",
+      DOCUMENTAL: "Documental",
+      ROMANCE: "Romance",
+      SUSPENSO: "Suspenso",
+    });
+  });
+
+  it("tiene un texto para cada valor del enum", () => {
+    expect(Object.keys(ETIQUETAS_DE_CATEGORIA).sort()).toEqual([...categoriaSchema.options].sort());
   });
 });

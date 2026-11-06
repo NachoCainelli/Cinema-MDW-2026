@@ -207,14 +207,33 @@ function funcionPublicada() {
  * Cartelera pública: solo lo que alguien puede ir a ver hoy (`funcionPublicada`).
  * Usa `camposDeFuncionPublicos`, no el que ve el gestor: ver el comentario de
  * esa constante.
+ *
+ * Filtra por título en la base (`q`, sin distinguir mayúsculas) y pagina de a
+ * `limite`: la búsqueda tiene que llegar a cualquier función publicada, no
+ * solo a las de la primera página. Pide una función de más para saber si hay
+ * otra página sin contar todo el resultado; esa función extra no se devuelve.
+ * El `id` desempata el orden: dos funciones a la misma hora en salas distintas
+ * son lo normal, y sin un orden total podrían repetirse o perderse entre una
+ * página y la siguiente.
  */
-export async function listarCartelera({ limite }: CarteleraQuery) {
-  return prisma.funcion.findMany({
-    where: funcionPublicada(),
+export async function listarCartelera({ q, pagina, limite }: CarteleraQuery) {
+  const publicada = funcionPublicada();
+  const where: Prisma.FuncionWhereInput = q
+    ? {
+        ...publicada,
+        pelicula: { ...publicada.pelicula, titulo: { contains: q, mode: "insensitive" } },
+      }
+    : publicada;
+
+  const funciones = await prisma.funcion.findMany({
+    where,
     select: camposDeFuncionPublicos,
-    orderBy: { inicio: "asc" },
-    take: limite,
+    orderBy: [{ inicio: "asc" }, { id: "asc" }],
+    skip: (pagina - 1) * limite,
+    take: limite + 1,
   });
+
+  return { funciones: funciones.slice(0, limite), hayMas: funciones.length > limite };
 }
 
 /**
