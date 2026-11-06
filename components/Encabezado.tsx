@@ -22,16 +22,16 @@ export default function Encabezado({ children }: { children?: React.ReactNode })
           <Image
             src="/branding/logo-horizontal.png"
             alt=""
-            width={2500}
-            height={509}
+            width={1940}
+            height={397}
             priority
             className="h-9 w-auto dark:hidden"
           />
           <Image
             src="/branding/logo-horizontal-oscuro.png"
             alt=""
-            width={2455}
-            height={530}
+            width={2073}
+            height={430}
             priority
             className="hidden h-9 w-auto dark:block"
           />
