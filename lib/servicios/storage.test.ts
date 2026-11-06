@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { subirImagen } from "./storage";
+import { subirImagen, timeoutDeSubida } from "./storage";
 
 const fetchMock = vi.fn();
 
@@ -20,7 +20,32 @@ afterEach(() => {
   fetchMock.mockReset();
 });
 
+describe("timeoutDeSubida", () => {
+  it("le da 5 s a un archivo chico, como antes", () => {
+    expect(timeoutDeSubida(1024)).toBe(5_004);
+  });
+
+  it("escala con el tamaño: 256 KB/s por encima de la base", () => {
+    expect(timeoutDeSubida(1024 * 1024)).toBe(9_000);
+  });
+
+  it("no pasa de 25 s con el archivo más grande que admite el schema (5 MB)", () => {
+    expect(timeoutDeSubida(5 * 1024 * 1024)).toBe(25_000);
+  });
+});
+
 describe("subirImagen", () => {
+  it("usa el plazo que corresponde al tamaño del archivo", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
+    const grande = new File([new Uint8Array(5 * 1024 * 1024)], "poster.png", { type: "image/png" });
+
+    await subirImagen(grande);
+
+    expect(timeout).toHaveBeenCalledWith(25_000);
+    timeout.mockRestore();
+  });
+
   it("sube el archivo al bucket público con la service_role key y un timeout", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 200 }));
 

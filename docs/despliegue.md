@@ -39,7 +39,7 @@ flowchart LR
   fn -- "TCP · 6543 · protocolo de Postgres<br/>modo transacción (pgbouncer=true)" --> pooler
   cli -- "TCP · 5432 · protocolo de Postgres<br/>modo sesión (DIRECT_URL)" --> pooler
   pooler --> pg
-  fn -- "HTTPS · 443 · REST<br/>POST /storage/v1/object/… · timeout 5 s" --> storage
+  fn -- "HTTPS · 443 · REST<br/>POST /storage/v1/object/… · timeout de 5 a 25 s, según el tamaño" --> storage
   nav -- "HTTPS · 443 · GET del póster<br/>(URL pública)" --> storage
   nav -- "HTTPS · 443 · redirección<br/>OAuth 2.0 / OpenID Connect" --> cuentas
   fn -- "HTTPS · 443 · canje del código<br/>por los tokens" --> tokens
@@ -53,7 +53,7 @@ flowchart LR
 | Navegador | Vercel | HTTPS, 443 | Cookie de sesión de Auth.js (JWT cifrado con `AUTH_SECRET`) | `lib/auth.ts` (`strategy: "jwt"`), ADR 0004 |
 | App (Vercel) | Postgres | TCP 6543, protocolo de Postgres, a través del pooler en modo transacción | Usuario y contraseña en `DATABASE_URL` | `prisma/schema.prisma` (`url`), `.env.example`; host y puerto, de la variable configurada |
 | Prisma CLI (desarrollo) | Postgres | TCP 5432, protocolo de Postgres, a través del pooler en modo sesión | Usuario y contraseña en `DIRECT_URL` | `prisma/schema.prisma` (`directUrl`): las migraciones necesitan una conexión de sesión, que el modo transacción no da |
-| App (Vercel) | Supabase Storage | HTTPS, 443, API REST | `Authorization: Bearer` con `SUPABASE_SERVICE_ROLE_KEY`, solo en el servidor | `lib/servicios/storage.ts` (`subirImagen`), con timeout de 5 s |
+| App (Vercel) | Supabase Storage | HTTPS, 443, API REST | `Authorization: Bearer` con `SUPABASE_SERVICE_ROLE_KEY`, solo en el servidor | `lib/servicios/storage.ts` (`subirImagen`), con timeout de 5 s más lo que tarda el archivo a 256 KB/s (25 s con 5 MB) |
 | Navegador | Supabase Storage | HTTPS, 443, `GET` | Ninguna: el bucket es público | La URL `/storage/v1/object/public/…` que devuelve `subirImagen` |
 | Navegador | Google | HTTPS, 443, redirección de OAuth 2.0 / OpenID Connect | La cuenta de Google de la persona | Proveedor `Google` en `lib/auth.ts`, ADR 0003 |
 | App (Vercel) | Google | HTTPS, 443, canje del código de autorización por los tokens | `AUTH_GOOGLE_ID` y `AUTH_GOOGLE_SECRET` | Proveedor `Google` en `lib/auth.ts` (Auth.js hace el canje) |
