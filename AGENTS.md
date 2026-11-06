@@ -6,7 +6,7 @@ Este archivo lo lee tu asistente de IA (Cursor, Copilot, Claude Code, etc.) ante
 
 ## Qué es este proyecto
 
-Cinema MDW 2026 unifica la gestión de cartelera y la venta de entradas de un cine. Hoy la
+Interamericana Cines unifica la gestión de cartelera y la venta de entradas de un cine. Hoy la
 programación se arma aparte (planillas, WhatsApp) y se carga a mano en un sistema de boletería
 viejo que no se comunica con ella, lo que genera desfasajes entre butacas vendidas y butacas que
 figuran libres. El sistema reemplaza ese doble paso con disponibilidad de butacas en tiempo real y

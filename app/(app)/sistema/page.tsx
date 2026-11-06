@@ -36,7 +36,7 @@ import { urlDeIngreso } from "@/lib/navegacion";
 import { formatearFecha } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Sistema visual · Cinema MDW 2026",
+  title: "Sistema visual · Interamericana Cines",
 };
 
 const VARIANTES_DE_BUTTON = [

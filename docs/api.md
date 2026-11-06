@@ -1,6 +1,6 @@
 # Contrato de la API
 
-Este documento especifica el contrato de la API REST para el sistema Cinema MDW 2026.
+Este documento especifica el contrato de la API REST para el sistema Interamericana Cines.
 
 ## Reglas generales de error
 - **401 Unauthorized:** cuando la ruta requiere sesión y el usuario no está autenticado.

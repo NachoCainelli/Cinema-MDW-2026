@@ -31,7 +31,7 @@ import { compraIdSchema } from "@/lib/schemas/compra";
 import { formatearFecha } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Detalle de compra · Cinema MDW 2026",
+  title: "Detalle de compra · Interamericana Cines",
 };
 
 async function buscarCompra(id: string, usuarioId: string) {

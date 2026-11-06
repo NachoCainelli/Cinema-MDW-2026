@@ -1,4 +1,4 @@
-# Proyecto MDW 2026 — Cinema
+# Proyecto MDW 2026 — Interamericana Cines
 
 **Equipo:**
 

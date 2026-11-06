@@ -21,7 +21,7 @@ import { urlDeIngreso, urlDeRegistro } from "@/lib/navegacion";
 import { callbackUrlSchema } from "@/lib/schemas/usuario";
 
 export const metadata: Metadata = {
-  title: "Ingresar · Cinema MDW 2026",
+  title: "Ingresar · Interamericana Cines",
 };
 
 // El `error` de la URL elige uno de estos textos y nunca se muestra tal cual:

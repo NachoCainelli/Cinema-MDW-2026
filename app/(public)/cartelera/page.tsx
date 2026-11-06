@@ -23,7 +23,7 @@ import { carteleraQuerySchema } from "@/lib/schemas/funcion";
 import { formatearFecha } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Cartelera · Cinema MDW 2026",
+  title: "Cartelera · Interamericana Cines",
 };
 
 // Hoy el layout de `(public)` lee la sesión y eso ya vuelve dinámica la

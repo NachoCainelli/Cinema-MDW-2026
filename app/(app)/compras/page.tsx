@@ -21,7 +21,7 @@ import { historialQuerySchema } from "@/lib/schemas/compra";
 import { formatearFecha } from "@/lib/utils";
 
 export const metadata: Metadata = {
-  title: "Mis compras · Cinema MDW 2026",
+  title: "Mis compras · Interamericana Cines",
 };
 
 export default async function MisCompras() {

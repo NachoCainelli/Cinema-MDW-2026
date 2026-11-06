@@ -1,4 +1,4 @@
-# Especificación del sistema — Cinema MDW 2026
+# Especificación del sistema — Interamericana Cines
 
 > Este documento **es** el relevamiento de requerimientos del proyecto (eje metodológico, clase 2).
 > Se completa en la clase 2 y se mantiene actualizado todo el cuatrimestre.

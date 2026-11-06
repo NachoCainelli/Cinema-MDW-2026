@@ -1,4 +1,4 @@
-# Diagrama de entidades — Cinema MDW 2026
+# Diagrama de entidades — Interamericana Cines
 
 ```mermaid
 erDiagram

@@ -21,7 +21,7 @@ import { registrarseAction } from "./acciones";
 import FormularioRegistro from "./FormularioRegistro";
 
 export const metadata: Metadata = {
-  title: "Crear cuenta · Cinema MDW 2026",
+  title: "Crear cuenta · Interamericana Cines",
 };
 
 type Parametros = Promise<{ callbackUrl?: string | string[] }>;
