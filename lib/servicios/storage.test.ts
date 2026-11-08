@@ -17,6 +17,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
   fetchMock.mockReset();
 });
 
@@ -43,7 +44,6 @@ describe("subirImagen", () => {
     await subirImagen(grande);
 
     expect(timeout).toHaveBeenCalledWith(25_000);
-    timeout.mockRestore();
   });
 
   it("sube el archivo al bucket público con la service_role key y un timeout", async () => {

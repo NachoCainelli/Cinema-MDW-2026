@@ -599,11 +599,13 @@ Content-Type: image/png
 < ./fixtures/poster.png
 ------BordePoster--
 
-### H6 · Subir el póster con Storage que no responde (timeout) → 502 a los ~5 segundos
+### H6 · Subir el póster con Storage que no responde (timeout) → 502 a los ~5 segundos con el póster de ejemplo
 # Solo con SUPABASE_URL=https://10.255.255.1 (una IP que no contesta). El
 # `fetch` a Storage corta por `AbortSignal.timeout(timeoutDeSubida(archivo.size))`:
-# 5 s más lo que tarda el archivo en viajar a 256 KB/s (el póster de ejemplo es
-# chico). Si el request tarda mucho más o queda colgado, el timeout no está funcionando.
+# 5 s más lo que tarda el archivo en viajar a 256 KB/s. El póster de ejemplo es
+# chico, así que espera ~5 s; con un archivo de 1 MB espera ~9 s y con uno de
+# 4 MB, ~21 s. Si el request tarda mucho más que eso o queda colgado, el timeout
+# no está funcionando.
 POST {{baseUrl}}/api/peliculas/imagen
 Cookie: {{cookieGestor}}
 Content-Type: multipart/form-data; boundary=----BordePoster
