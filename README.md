@@ -83,26 +83,26 @@ Vercel detecta pnpm mediante `pnpm-lock.yaml`. Para que use exactamente la versi
 ## Estructura
 
 ```
-app/                    rutas (App Router)
-  (public)/             páginas sin sesión
-  (app)/                páginas con sesión
-  api/                  Route Handlers
-components/             componentes de UI
+app/                      rutas (App Router)
+  (public)/               páginas sin sesión
+  (app)/                  páginas con sesión
+  api/                    Route Handlers
+components/               componentes de UI
 lib/
-  db/                   acceso a datos — ÚNICO lugar que habla con Prisma
-  schemas/              schemas de Zod (validación + tipos)
-  auth.ts               configuración de sesión y roles
+  db/                     acceso a datos — ÚNICO lugar que habla con Prisma
+  schemas/                schemas de Zod (validación + tipos)
+  auth.ts                 configuración de sesión y roles
 prisma/
-  schema.prisma         modelo de datos
-  seed.ts               datos de ejemplo
+  schema.prisma           modelo de datos
+  seed.ts                 datos de ejemplo
 docs/
-  spec.md               qué hace el sistema (requerimientos)
-  api.md                contrato de la API y catálogo de errores
-  permisos.md           matriz de permisos por rol
-  despliegue.md         diagrama de despliegue, con protocolos y puertos
-  trazabilidad.md       un requisito seguido de la historia a la pantalla
+  spec.md                 qué hace el sistema (requerimientos)
+  api.md                  contrato de la API y catálogo de errores
+  permisos.md             matriz de permisos por rol
+  despliegue.md           diagrama de despliegue, con protocolos y puertos
+  trazabilidad.md         un requisito seguido de la historia a la pantalla
   verificacion-compra.md  lo probado a mano en la pantalla de compra
-  adr/                  decisiones técnicas y por qué
+  adr/                    decisiones técnicas y por qué
 ```
 
 ## Reglas del equipo
