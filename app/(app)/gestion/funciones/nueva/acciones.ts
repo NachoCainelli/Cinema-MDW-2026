@@ -53,9 +53,8 @@ export async function crearFuncionAction(
     return estadoDeError(error, valores);
   }
 
-  // La función nueva ya figura en la cartelera pública. El destino es
-  // `/cartelera` y no el detalle de la función porque `/funciones/[id]`
-  // (#88) todavía no existe.
+  // La función nueva ya figura en la cartelera pública: se redirige ahí para
+  // que el gestor la vea publicada.
   revalidatePath("/cartelera");
   redirect("/cartelera");
 }
