@@ -73,12 +73,58 @@ Vercel detecta pnpm mediante `pnpm-lock.yaml`. Para que use exactamente la versi
 | `pnpm build` | Build de producción (lo mismo que corre Vercel) |
 | `pnpm lint` | Lint |
 | `pnpm typecheck` | Chequeo de tipos sin emitir |
-| `pnpm test` | Tests |
+| `pnpm test` | Tests de dominio (Vitest) |
+| `pnpm test:e2e` | Pruebas de punta a punta (Playwright), contra la base local — ver [Pruebas](#pruebas) |
+| `pnpm e2e:preparar` | Borrar y volver a sembrar la base local de pruebas |
 | `pnpm db:generate` | Generar el cliente de Prisma |
 | `pnpm db:migrate --name <nombre>` | Crear y aplicar una migración |
 | `pnpm db:studio` | Abrir Prisma Studio |
 | `pnpm db:seed` | Cargar datos de ejemplo |
 | `pnpm security:audit` | Buscar vulnerabilidades conocidas |
+
+## Pruebas
+
+Hay dos capas:
+
+- **Dominio** (`pnpm test`, Vitest): los `*.test.ts` de `lib/`. No levantan la app ni tocan ninguna base.
+- **Punta a punta** (`pnpm test:e2e`, Playwright): los `*.spec.ts` de `e2e/`. Compilan la app, la levantan y la usan con un navegador, contra una **Postgres local**.
+
+> **Las e2e nunca corren contra la base de producción.** `playwright.config.ts` carga `.env.e2e` y se niega a arrancar si `DATABASE_URL` o `DIRECT_URL` apuntan a un host que no sea `localhost`/`127.0.0.1` (por ejemplo, si quedó exportada en la terminal la URL de Supabase). Las variables de `.env.local` que no están en `.env.e2e` se vacían, así ninguna credencial de producción llega al servidor de pruebas.
+
+Requisitos: Docker (con Compose) y, una sola vez, el navegador de Playwright:
+
+```bash
+pnpm exec playwright install chromium
+```
+
+Correrlas:
+
+```bash
+docker compose up -d --wait      # Postgres local en 127.0.0.1:5433
+pnpm test                        # dominio
+pnpm test:e2e                    # todas las e2e
+pnpm test:e2e -- concurrencia    # solo los archivos que coinciden con el filtro
+docker compose down              # apagar la base al terminar
+```
+
+Qué hace `pnpm test:e2e`, en orden:
+
+1. Compila la app en `.next-e2e` (aparte de `.next`, para no pisar `pnpm dev`) y la levanta con `next start` en http://localhost:3100.
+2. `e2e/preparar.ts` **borra la base local entera**, aplica las migraciones y corre el seed: cada corrida arranca de los mismos datos.
+3. Corre las pruebas, de a una (comparten la base).
+
+Las sesiones no pasan por el formulario de login: `e2e/sesiones.ts` fabrica la cookie de Auth.js de las cuentas del seed (una por rol) firmada con el `AUTH_SECRET` de prueba de `.env.e2e`. La app no tiene ningún modo prueba: recibe la misma cookie que después de un login.
+
+```ts
+import { iniciarSesionComo } from "./sesiones";
+
+test("…", async ({ context, page }) => {
+  await iniciarSesionComo(context, "GESTOR_CARTELERA");
+  await page.goto("/gestion/funciones/nueva");
+});
+```
+
+Si una prueba falla, el trace queda en `test-results/` y se abre con `pnpm exec playwright show-trace <archivo>.zip`.
 
 ## Estructura
 
@@ -92,6 +138,7 @@ lib/
   db/                     acceso a datos — ÚNICO lugar que habla con Prisma
   schemas/                schemas de Zod (validación + tipos)
   auth.ts                 configuración de sesión y roles
+e2e/                      pruebas de punta a punta (Playwright) — ver Pruebas
 prisma/
   schema.prisma           modelo de datos
   seed.ts                 datos de ejemplo

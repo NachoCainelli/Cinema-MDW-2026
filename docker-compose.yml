@@ -1,0 +1,27 @@
+# Postgres local para las pruebas de punta a punta (`pnpm test:e2e`).
+#
+# Es la única base contra la que corren las e2e: `playwright.config.ts` se
+# niega a arrancar si DATABASE_URL o DIRECT_URL apuntan a otro host. Cada
+# corrida la borra y la vuelve a sembrar (`e2e/preparar.ts`), así que no
+# guarda nada que importe y no tiene volumen con nombre.
+#
+# Levantar:  docker compose up -d --wait
+# Apagar:    docker compose down
+#
+# El puerto del host es 5433 (no 5432) para no chocar con un Postgres que ya
+# esté corriendo en la máquina. Solo escucha en 127.0.0.1: no queda expuesto
+# a la red.
+services:
+  postgres-e2e:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: cinema
+      POSTGRES_PASSWORD: cinema
+      POSTGRES_DB: cinema_e2e
+    ports:
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cinema -d cinema_e2e"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
