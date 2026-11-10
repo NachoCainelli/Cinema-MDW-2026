@@ -287,7 +287,7 @@ haga falta otra cosa.
 
 Esta lista es **igual para todos los proyectos**: no hay que adaptarla, hay que cumplirla.
 
-- [ ] Todo se puede operar **con el teclado**, y se ve dónde está el foco.
+- [x] Todo se puede operar **con el teclado**, y se ve dónde está el foco.
 - [x] Los campos de formulario tienen `label` asociado, no solo *placeholder*.
 - [x] Las imágenes que informan tienen texto alternativo; las decorativas, alternativo vacío.
 - [x] El **contraste** entre texto y fondo llega a **4,5:1** (3:1 si la letra es grande).
@@ -296,11 +296,12 @@ Esta lista es **igual para todos los proyectos**: no hay que adaptarla, hay que 
 Verificado en producción el 06/11/2026 (recorrido de #90) y el 09/11/2026 (foco y contraste, con la
 paleta de #101).
 
-- **Teclado y foco: no se cumple del todo.** El flujo se opera entero con Tab, Enter y Espacio, pero
-  en las butacas de `/funciones/[id]` el único indicador de foco es un anillo con 50% de opacidad
-  (`app/(public)/funciones/[id]/Butaca.tsx`, `ring-ring/50`): mide 2,29:1 en tema claro y 2,76:1 en
-  oscuro, por debajo del 3:1 que WCAG pide para lo que no es texto. Para cumplirlo hay que sacarle la
-  opacidad al anillo o sumar `focus-visible:border-ring`, como ya hace `components/ui/button.tsx`.
+- **Teclado y foco: corregido.** El flujo se opera entero con Tab, Enter y Espacio. En las butacas
+  de `/funciones/[id]` el único indicador de foco era un anillo con 50% de opacidad
+  (`app/(public)/funciones/[id]/Butaca.tsx`, `ring-ring/50`): medía 2,29:1 en tema claro y 2,76:1 en
+  oscuro, por debajo del 3:1 que WCAG pide para lo que no es texto. Se agregó
+  `focus-visible:border-ring`, el mismo patrón que ya usa `components/ui/button.tsx`: el borde pasa a
+  color sólido con el foco, sin depender de la opacidad del anillo.
 - **Contraste:** el mínimo medido es 5,78:1, en `/funciones/[id]` y `/compras` con los dos temas y
   en `/cartelera` con tema claro. El 4,35:1 que #90 registró en `/compras` era anterior a #101. Con
   la paleta actual no se midieron `/registrarse` ni `/gestion/funciones/nueva`.
