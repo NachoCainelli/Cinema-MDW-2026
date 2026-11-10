@@ -59,7 +59,7 @@ export default function Butaca({
       title={etiqueta}
       className={cn(
         estilo,
-        "outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed",
+        "outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed",
         !butaca.ocupada && !elegida && "hover:bg-accent disabled:opacity-50",
       )}
     >
