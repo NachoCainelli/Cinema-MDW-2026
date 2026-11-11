@@ -39,7 +39,9 @@ pago (simulado) resolviéndose al instante y sin reserva temporal de butacas.
 pnpm dev                         # desarrollo
 pnpm build                       # build de producción
 pnpm typecheck                   # chequeo de tipos
-pnpm test                        # tests
+pnpm test                        # pruebas de dominio (Vitest, sin base ni red)
+pnpm test:e2e                    # pruebas de punta a punta (Playwright, contra la Postgres local)
+pnpm test:e2e -- <filtro>        # solo las e2e cuyo archivo o nombre coincide
 pnpm db:migrate --name <nombre>  # migración de Prisma
 ```
 
@@ -145,6 +147,24 @@ se loguea el 500: los demás status son respuestas esperadas del contrato, no in
 - **Mobile-first:** se escribe primero el caso angosto —375px, botones a lo ancho, sin scroll horizontal— y el ancho se agrega con `sm:` hacia arriba.
 - **Una Server Action llama a la misma función de `lib/db/` que el Route Handler** del mismo caso; no reescribe la regla. Después de escribir, `revalidatePath` de cada pantalla que quedó vieja, y `redirect` al final (lanza, así que lo que esté después no corre).
 - **No hay `lib/casos/`.** Las reglas ya viven en `lib/<dominio>.ts` (puras) y `lib/db/` (que lanza un error de `lib/errores.ts`); lo único que cambia entre puertas es el traductor de esos mismos errores: `respuestaDeError` (`lib/api/respuestas.ts`) para HTTP, `estadoDeError` (`lib/formularios.ts`) para Server Actions.
+
+### Pruebas
+
+Hay dos capas, y cada prueba tiene un lugar según qué protege:
+
+| Si vas a probar… | Va en… |
+|---|---|
+| Una regla de negocio (`docs/spec.md` §6) | `lib/<dominio>.test.ts` (Vitest). Sin base, sin red, sin Next: la regla pura recibe el "ahora" por parámetro (como `funcionYaEmpezo(inicio, ahora)` en `lib/butacas.ts`), nunca llama a `new Date()` adentro. |
+| Un permiso o un endpoint nuevo (`docs/api.md`) | `e2e/permisos.spec.ts`: una prueba por fila de la columna "Rol autorizado". Endpoint nuevo en el contrato = fila nueva acá, en el mismo PR. |
+| El recorrido (`docs/spec.md` §5) | `e2e/flujo-principal.spec.ts`, un `test.step` por paso. |
+| Una regla de "uno solo" (una butaca, una función por franja) | `e2e/concurrencia.spec.ts`: pedidos simultáneos con `Promise.all` y contar filas en la base. |
+
+- **El valor esperado sale de la spec o del contrato, no del código.** Las pruebas cambian cuando cambia `docs/spec.md` o `docs/api.md`, no cuando cambia la implementación. Si una prueba se pone roja, se arregla el código; cambiar el valor esperado para que pase solo vale si antes cambió la spec.
+- **Toda prueba nueva se vio fallar.** Romper a propósito lo que prueba (sacar un `requerirUsuario`, cambiar un status), confirmar que se pone roja y volverlo a poner. Se cuenta en el PR.
+- **Las e2e corren solo contra la base local** (`docker-compose.yml` + `.env.e2e`). `playwright.config.ts` se niega a arrancar si `DATABASE_URL` o `DIRECT_URL` apuntan a otro host; no se desactiva esa guarda ni se corre una e2e contra Supabase "una sola vez".
+- **Las e2e buscan como una persona:** `getByRole`, `getByLabel`, `getByText`. Nada de ids, clases CSS, `data-testid` puestos solo para la prueba, `sleep` ni `waitForTimeout`: se espera a que algo aparezca en pantalla, no una cantidad de milisegundos.
+- **La sesión de una e2e se fabrica con `e2e/sesiones.ts`** (la cookie de Auth.js firmada con el secreto de `.env.e2e`), no con un atajo en la app.
+- **Prohibido:** un "modo prueba", un usuario mágico, un `if (process.env.E2E)` (o cualquier rama que solo exista para las pruebas) en el código de la app, y reemplazar la base por un simulacro en las e2e. Si la app necesita algo distinto para poder probarse, va como variable de entorno en `.env.e2e` con el mismo camino de código que en producción (como `PAGO_MOCK_TASA_RECHAZO`).
 
 ### Estilos
 - Solo Tailwind. Nada de CSS suelto ni estilos inline salvo valores calculados en runtime.
