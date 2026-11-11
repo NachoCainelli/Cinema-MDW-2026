@@ -45,14 +45,22 @@ const COOKIE_DE_SESION = "authjs.session-token";
 const DURACION_EN_SEGUNDOS = 30 * 24 * 60 * 60;
 
 /**
+ * El segundo USUARIO del seed (el "usuario B" de `docs/api.http`): sirve para
+ * probar que un usuario no ve las compras de otro.
+ */
+export const USUARIO_B_DEL_SEED = "usuario.b@ejemplo.com";
+
+/**
  * Fabrica la cookie de sesión de la cuenta del seed con ese rol. El id se lee
  * de la base (cambia en cada `e2e/preparar.ts`), igual que lo hace el login.
+ *
+ * `email` elige otra cuenta del seed con el mismo rol (por ejemplo,
+ * `USUARIO_B_DEL_SEED`); si no se pasa, es la de `CUENTAS_DEL_SEED`.
  */
-export async function cookieDeSesion(rol: Rol) {
+export async function cookieDeSesion(rol: Rol, email = CUENTAS_DEL_SEED[rol]) {
   const secreto = process.env.AUTH_SECRET;
   if (!secreto) throw new Error("Falta AUTH_SECRET: ¿se cargó .env.e2e?");
 
-  const email = CUENTAS_DEL_SEED[rol];
   const usuario = await buscarUsuarioPorEmail(email);
   if (!usuario) {
     throw new Error(`No está la cuenta ${email} en la base: ¿corrió e2e/preparar.ts?`);
