@@ -20,15 +20,26 @@
  * "la otra sesión"— se hace por la API con las cuentas del seed, igual que en
  * `concurrencia.spec.ts`.
  */
-import { expect, test, type APIRequestContext, type Browser, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 import type { Rol } from "@prisma/client";
 
 import { prisma } from "@/lib/db/client";
-import { desdeHoraDelCine, formatearFecha } from "@/lib/utils";
+import { ZONA_HORARIA, desdeHoraDelCine, formatearFecha } from "@/lib/utils";
 
 import { USUARIO_B_DEL_SEED, cookieDeSesion, iniciarSesionComo } from "./sesiones";
 
-/** Para que dos corridas sobre la misma base no choquen con nombres únicos (la sala). */
+/**
+ * Para que los nombres únicos (la sala, el email) no choquen con los del seed
+ * ni con los que crean otras specs en la misma corrida. Entre corridas no hace
+ * falta: `e2e/preparar.ts` borra la base antes de cada `pnpm test:e2e`.
+ */
 const SUFIJO = Date.now().toString(36);
 
 const SALA = { nombre: `Sala del flujo ${SUFIJO}`, filas: 3, columnas: 4 };
@@ -43,7 +54,7 @@ const PELICULA_QUE_OCUPA_LA_SALA = { titulo: `Ensayo técnico ${SUFIJO}`, duraci
 /** Pasado mañana en el cine, como lo escribe un `<input type="datetime-local">`. */
 function pasadoManiana(hora: string) {
   const fecha = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Argentina/Buenos_Aires",
+    timeZone: ZONA_HORARIA,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -56,6 +67,22 @@ const INICIO_OCUPADO = pasadoManiana("10:00");
 const INICIO_QUE_SE_PISA = pasadoManiana("11:00");
 const INICIO_LIBRE = pasadoManiana("20:00");
 
+const cookies = new Map<string, Promise<string>>();
+
+/**
+ * El header `cookie` de la sesión de esa cuenta del seed. Se arma una sola vez
+ * por cuenta (lee la base y cifra el JWT), aunque se pida en paralelo.
+ */
+function cookieDe(rol: Rol, email?: string) {
+  const clave = `${rol} ${email ?? ""}`;
+  let cookie = cookies.get(clave);
+  if (!cookie) {
+    cookie = cookieDeSesion(rol, email).then(({ name, value }) => `${name}=${value}`);
+    cookies.set(clave, cookie);
+  }
+  return cookie;
+}
+
 async function postComo(
   request: APIRequestContext,
   rol: Rol,
@@ -63,9 +90,8 @@ async function postComo(
   cuerpo: unknown,
   email?: string,
 ) {
-  const cookie = await cookieDeSesion(rol, email);
   const respuesta = await request.post(ruta, {
-    headers: { cookie: `${cookie.name}=${cookie.value}` },
+    headers: { cookie: await cookieDe(rol, email) },
     data: cuerpo,
   });
   expect(respuesta.status(), `POST ${ruta}: ${await respuesta.text()}`).toBe(201);
@@ -86,8 +112,25 @@ function linkDelMenu(page: Page, nombre: string) {
   return page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: nombre });
 }
 
+/** Busca la película del flujo en la cartelera, como lo haría una persona. */
+async function buscarEnCartelera(page: Page) {
+  await page.getByLabel("Buscar por película", { exact: true }).fill(PELICULA.titulo);
+  await page.getByRole("button", { name: "Buscar" }).click();
+}
+
+/**
+ * Los navegadores que abrió la prueba. Se cierran en `afterEach`, así que
+ * quedan cerrados aunque falle un paso a la mitad.
+ */
+const contextosAbiertos: BrowserContext[] = [];
+
+test.afterEach(async () => {
+  await Promise.all(contextosAbiertos.splice(0).map((context) => context.close()));
+});
+
 async function navegadorCon(browser: Browser, rol?: Rol) {
   const context = await browser.newContext();
+  contextosAbiertos.push(context);
   if (rol) await iniciarSesionComo(context, rol);
   return { context, page: await context.newPage() };
 }
@@ -101,9 +144,12 @@ test("el flujo principal de spec §5, de la función publicada a la compra en el
   test.setTimeout(60_000);
 
   // Lo que el administrador y el gestor ya cargaron antes del flujo.
-  const { id: salaId } = await postComo(request, "ADMINISTRADOR", "/api/salas", SALA);
-  await crearPelicula(request, PELICULA);
-  const { id: peliculaQueOcupaId } = await crearPelicula(request, PELICULA_QUE_OCUPA_LA_SALA);
+  // La sala y las dos películas no dependen entre sí; la función, de las tres.
+  const [{ id: salaId }, , { id: peliculaQueOcupaId }] = await Promise.all([
+    postComo(request, "ADMINISTRADOR", "/api/salas", SALA),
+    crearPelicula(request, PELICULA),
+    crearPelicula(request, PELICULA_QUE_OCUPA_LA_SALA),
+  ]);
   await postComo(request, "GESTOR_CARTELERA", "/api/funciones", {
     peliculaId: peliculaQueOcupaId,
     salaId,
@@ -154,8 +200,7 @@ test("el flujo principal de spec §5, de la función publicada a la compra en el
     // La ve alguien sin sesión, no solo el gestor que la creó.
     const { page } = usuario;
     await page.goto("/cartelera");
-    await page.getByLabel("Buscar por película", { exact: true }).fill(PELICULA.titulo);
-    await page.getByRole("button", { name: "Buscar" }).click();
+    await buscarEnCartelera(page);
 
     await expect(tarjetaDeLaFuncion(page).getByRole("link", { name: PELICULA.titulo })).toBeVisible();
   });
@@ -177,8 +222,7 @@ test("el flujo principal de spec §5, de la función publicada a la compra en el
   await test.step("4. El usuario ve la cartelera y elige la función", async () => {
     const { page } = usuario;
     await linkDelMenu(page, "Cartelera").click();
-    await page.getByLabel("Buscar por película", { exact: true }).fill(PELICULA.titulo);
-    await page.getByRole("button", { name: "Buscar" }).click();
+    await buscarEnCartelera(page);
     await tarjetaDeLaFuncion(page).getByRole("link", { name: PELICULA.titulo }).click();
 
     await expect(page.getByRole("heading", { level: 1, name: PELICULA.titulo })).toBeVisible();
@@ -199,14 +243,18 @@ test("el flujo principal de spec §5, de la función publicada a la compra en el
     await expect(usuario.page.getByText(/^3 butacas ·/)).toBeVisible();
   });
 
+  let urlDeLaFuncion = "";
   let urlDeLaCompra = "";
 
   await test.step("6. Confirma la compra; una butaca se vendió mientras elegía", async () => {
     const { page } = usuario;
-    const funcionId = new URL(page.url()).pathname.split("/").at(-1)!;
+    urlDeLaFuncion = page.url();
+    const funcionId = new URL(urlDeLaFuncion).pathname.split("/").at(-1)!;
 
     // Otra persona compra la Fila 1 · Butaca 1 antes de que este usuario confirme.
-    const mapa = await request.get(`/api/funciones/${funcionId}/butacas`);
+    const rutaDelMapa = `/api/funciones/${funcionId}/butacas`;
+    const mapa = await request.get(rutaDelMapa);
+    expect(mapa.status(), `GET ${rutaDelMapa}: ${await mapa.text()}`).toBe(200);
     const { butacas }: { butacas: { id: string; fila: number; columna: number }[] } =
       await mapa.json();
     const primera = butacas.find((b) => b.fila === 1 && b.columna === 1);
@@ -244,8 +292,8 @@ test("el flujo principal de spec §5, de la función publicada a la compra en el
 
   await test.step("7. Las butacas compradas quedan ocupadas para esa función", async () => {
     const { page } = usuario;
-    await page.goBack();
-    await page.reload();
+    // Una carga nueva de la función, sin depender del historial del navegador.
+    await page.goto(urlDeLaFuncion);
 
     // 12 butacas: una la compró la otra sesión y dos este usuario.
     await expect(
@@ -273,11 +321,13 @@ test("el flujo principal de spec §5, de la función publicada a la compra en el
     await expect(page.getByText(PELICULA.titulo)).toBeVisible();
     await expect(page.getByText("Pagada")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Entradas (2)" })).toBeVisible();
-    await expect(page.getByRole("listitem")).toHaveText(["Fila 1 · Butaca 2", "Fila 1 · Butaca 3"]);
+    // Solo la lista de entradas, no cualquier lista de la página (menú, pie).
+    const entradas = page.getByRole("list").filter({ hasText: "Fila 1 · Butaca" });
+    await expect(entradas.getByRole("listitem")).toHaveText([
+      "Fila 1 · Butaca 2",
+      "Fila 1 · Butaca 3",
+    ]);
   });
-
-  await gestor.context.close();
-  await usuario.context.close();
 });
 
 test.afterAll(async () => {
