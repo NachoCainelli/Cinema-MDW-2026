@@ -287,20 +287,29 @@ haga falta otra cosa.
 
 Esta lista es **igual para todos los proyectos**: no hay que adaptarla, hay que cumplirla.
 
-- [ ] Todo se puede operar **con el teclado**, y se ve dónde está el foco.
+- [x] Todo se puede operar **con el teclado**, y se ve dónde está el foco.
 - [x] Los campos de formulario tienen `label` asociado, no solo *placeholder*.
 - [x] Las imágenes que informan tienen texto alternativo; las decorativas, alternativo vacío.
 - [x] El **contraste** entre texto y fondo llega a **4,5:1** (3:1 si la letra es grande).
 - [x] El error nunca se comunica **solo con color**: siempre hay texto.
 
-Verificado en producción el 06/11/2026 (recorrido de #90) y el 09/11/2026 (foco y contraste, con la
-paleta de #101).
+Verificado en producción el 06/11/2026 (recorrido de #90), el 09/11/2026 (foco y contraste, con la
+paleta de #101) y en preview el 15/11/2026 (foco de una butaca elegida en tema oscuro, tras la
+revisión de #90 que encontró el problema de abajo).
 
-- **Teclado y foco: no se cumple del todo.** El flujo se opera entero con Tab, Enter y Espacio, pero
-  en las butacas de `/funciones/[id]` el único indicador de foco es un anillo con 50% de opacidad
-  (`app/(public)/funciones/[id]/Butaca.tsx`, `ring-ring/50`): mide 2,29:1 en tema claro y 2,76:1 en
-  oscuro, por debajo del 3:1 que WCAG pide para lo que no es texto. Para cumplirlo hay que sacarle la
-  opacidad al anillo o sumar `focus-visible:border-ring`, como ya hace `components/ui/button.tsx`.
+- **Teclado y foco: corregido.** El flujo se opera entero con Tab, Enter y Espacio. En las butacas
+  de `/funciones/[id]` el único indicador de foco era un anillo con 50% de opacidad
+  (`app/(public)/funciones/[id]/Butaca.tsx`, `ring-ring/50`): medía 2,29:1 en tema claro y 2,76:1 en
+  oscuro, por debajo del 3:1 que WCAG pide para lo que no es texto. Un primer intento agregó
+  `focus-visible:border-ring`, el mismo patrón que ya usa `components/ui/button.tsx`: el borde pasa a
+  color sólido con el foco. No alcanzaba para la butaca elegida: en tema oscuro `--ring` y `--primary`
+  son el mismo color (`#fd8b0a`, `app/globals.css`), y una butaca elegida ya tiene `border-primary`,
+  así que el borde no cambiaba con el foco y el único indicador seguía siendo el anillo
+  semitransparente. Se reemplazó por un anillo sólido separado de la butaca
+  (`focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+  focus-visible:ring-offset-background`): el hueco del color de fondo entre el borde y el anillo lo
+  hace visible sin importar el color de la butaca. Mide 6,55:1 en tema claro y 8,12:1 en oscuro contra
+  el fondo, en los tres estados y los dos temas.
 - **Contraste:** el mínimo medido es 5,78:1, en `/funciones/[id]` y `/compras` con los dos temas y
   en `/cartelera` con tema claro. El 4,35:1 que #90 registró en `/compras` era anterior a #101. Con
   la paleta actual no se midieron `/registrarse` ni `/gestion/funciones/nueva`.
