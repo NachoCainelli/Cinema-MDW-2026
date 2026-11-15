@@ -51,6 +51,14 @@ const camposDeCompra = {
   },
 } satisfies Prisma.CompraSelect;
 
+/**
+ * "No se te cobró nada" es cierto en el chequeo previo al cobro, pero no en
+ * los dos rechazos de después (`seAdelantaron` y el índice único): ahí
+ * `cobrar` ya aprobó. Se mantiene igual porque el pago es simulado y no mueve
+ * plata, así que tampoco hay nada que anular. El día que `lib/pagos.ts` se
+ * reemplace por una pasarela real, esos dos caminos tienen que anular el cobro
+ * antes de responder y, recién entonces, el mensaje sigue siendo verdad.
+ */
 function mensajeDeButacasOcupadas(cantidad: number) {
   return cantidad === 1
     ? "Una de las butacas que elegiste ya fue vendida para esta función. No se te cobró nada"

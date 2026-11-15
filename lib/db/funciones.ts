@@ -108,6 +108,7 @@ const camposDeFuncionPublicos = {
  * decide después, con la duración de cada una.
  */
 async function funcionesQuePuedenSolapar(
+  tx: Prisma.TransactionClient,
   salaId: string,
   nueva: Franja,
 ): Promise<FuncionProgramada[]> {
@@ -117,7 +118,7 @@ async function funcionesQuePuedenSolapar(
   );
   const hasta = new Date(finConMargen(nueva));
 
-  const funciones = await prisma.funcion.findMany({
+  const funciones = await tx.funcion.findMany({
     where: { salaId, inicio: { gte: desde, lte: hasta } },
     select: {
       id: true,
@@ -140,11 +141,14 @@ async function funcionesQuePuedenSolapar(
  * Crea una función (H3). La fecha en el pasado ya la rechazó el schema; acá
  * quedan las reglas que necesitan mirar la base.
  *
- * El chequeo de solapamiento y el `create` no son atómicos: dos gestores
- * creando funciones pisadas en la misma sala en el mismo instante podrían
- * pasar los dos. Es una carrera muy poco probable (una sola persona programa
- * la cartelera) y la base no tiene cómo expresar esta restricción con un
- * `@unique`; si hiciera falta cerrarla, va con un bloqueo sobre la sala.
+ * El solapamiento no se puede expresar con un `@unique` (depende de la
+ * duración de cada película), así que la carrera de dos pedidos simultáneos
+ * —los dos ven la sala libre y los dos crean— se cierra con un bloqueo sobre
+ * la fila de la sala: el chequeo y el `create` van en una transacción que
+ * empieza con `SELECT ... FOR UPDATE` sobre la sala. Un segundo pedido para la
+ * misma sala espera en ese `SELECT` hasta que el primero confirme, y recién
+ * ahí busca candidatas: ya ve la función nueva y responde 409. Pedidos para
+ * salas distintas no se esperan entre sí. Ver `docs/adr/0005-bloqueo-de-sala-al-crear-funciones.md`.
  */
 export async function crearFuncion(datos: CrearFuncionInput) {
   const pelicula = await prisma.pelicula.findUnique({
@@ -158,35 +162,51 @@ export async function crearFuncion(datos: CrearFuncionInput) {
     );
   }
 
-  const sala = await prisma.sala.findUnique({
-    where: { id: datos.salaId },
-    select: { id: true, nombre: true, eliminadaEn: true },
+  return prisma.$transaction(async (tx) => {
+    // El bloqueo va antes de leer nada de la sala: así también ve una baja de
+    // la sala que se haya confirmado mientras este pedido esperaba.
+    await bloquearSala(tx, datos.salaId);
+
+    const sala = await tx.sala.findUnique({
+      where: { id: datos.salaId },
+      select: { id: true, nombre: true, eliminadaEn: true },
+    });
+    if (!sala) throw new ErrorNoEncontrado("No existe la sala indicada");
+    if (sala.eliminadaEn) {
+      throw new ErrorDeConflicto(
+        `La sala ${sala.nombre} está eliminada: no admite funciones nuevas`,
+      );
+    }
+
+    const nueva: Franja = { inicio: datos.inicio, duracionMinutos: pelicula.duracionMinutos };
+    const candidatas = await funcionesQuePuedenSolapar(tx, sala.id, nueva);
+    // Las candidatas vienen ordenadas por inicio: el mensaje nombra la primera
+    // que se pisa, igual que antes de que la regla devolviera todas.
+    const [enConflicto] = funcionesEnConflicto(nueva, candidatas);
+
+    if (enConflicto) {
+      throw new ErrorDeConflicto(
+        `La sala ${sala.nombre} ya tiene la función de "${enConflicto.titulo}" el ` +
+          `${formatearFecha(enConflicto.inicio)} (${enConflicto.duracionMinutos} min). Entre una función ` +
+          `y la siguiente tienen que quedar al menos ${MARGEN_ENTRE_FUNCIONES_MINUTOS} minutos`,
+      );
+    }
+
+    return tx.funcion.create({
+      data: { inicio: datos.inicio, peliculaId: pelicula.id, salaId: sala.id },
+      select: camposDeFuncionParaGestor,
+    });
   });
-  if (!sala) throw new ErrorNoEncontrado("No existe la sala indicada");
-  if (sala.eliminadaEn) {
-    throw new ErrorDeConflicto(
-      `La sala ${sala.nombre} está eliminada: no admite funciones nuevas`,
-    );
-  }
+}
 
-  const nueva: Franja = { inicio: datos.inicio, duracionMinutos: pelicula.duracionMinutos };
-  const candidatas = await funcionesQuePuedenSolapar(sala.id, nueva);
-  // Las candidatas vienen ordenadas por inicio: el mensaje nombra la primera
-  // que se pisa, igual que antes de que la regla devolviera todas.
-  const [enConflicto] = funcionesEnConflicto(nueva, candidatas);
-
-  if (enConflicto) {
-    throw new ErrorDeConflicto(
-      `La sala ${sala.nombre} ya tiene la función de "${enConflicto.titulo}" el ` +
-        `${formatearFecha(enConflicto.inicio)} (${enConflicto.duracionMinutos} min). Entre una función ` +
-        `y la siguiente tienen que quedar al menos ${MARGEN_ENTRE_FUNCIONES_MINUTOS} minutos`,
-    );
-  }
-
-  return prisma.funcion.create({
-    data: { inicio: datos.inicio, peliculaId: pelicula.id, salaId: sala.id },
-    select: camposDeFuncionParaGestor,
-  });
+/**
+ * Toma el bloqueo de escritura de la fila de la sala hasta el final de la
+ * transacción. Si la sala no existe no bloquea nada, y el `findUnique` de
+ * después responde el 404 de siempre. El id va como parámetro de la consulta
+ * (`$queryRaw` con template), nunca concatenado.
+ */
+async function bloquearSala(tx: Prisma.TransactionClient, salaId: string) {
+  await tx.$queryRaw`SELECT "id" FROM "Sala" WHERE "id" = ${salaId} FOR UPDATE`;
 }
 
 /**

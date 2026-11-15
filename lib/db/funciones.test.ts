@@ -12,8 +12,10 @@ const {
   buscarFuncionPublicada,
   buscarButacas,
   buscarEntradas,
+  consultaCruda,
 } =
   vi.hoisted(() => ({
+    consultaCruda: vi.fn(),
     buscarFuncionPublicada: vi.fn(),
     buscarPelicula: vi.fn(),
     buscarSala: vi.fn(),
@@ -24,8 +26,11 @@ const {
     buscarEntradas: vi.fn(),
   }));
 
-vi.mock("@/lib/db/client", () => ({
-  prisma: {
+vi.mock("@/lib/db/client", () => {
+  const prisma = {
+    $queryRaw: consultaCruda,
+    // La transacción de mentira le pasa el mismo cliente a la función.
+    $transaction: (operacion: (tx: unknown) => unknown) => operacion(prisma),
     pelicula: { findUnique: buscarPelicula },
     sala: { findUnique: buscarSala },
     funcion: {
@@ -36,8 +41,9 @@ vi.mock("@/lib/db/client", () => ({
     },
     butaca: { findMany: buscarButacas },
     entrada: { findMany: buscarEntradas },
-  },
-}));
+  };
+  return { prisma };
+});
 
 const { crearFuncion, listarCartelera, listarButacasDeFuncion, listarButacasDeFuncionPublicada } =
   await import("./funciones");
@@ -114,6 +120,17 @@ describe("crearFuncion", () => {
       `La sala Sala 1 ya tiene la función de "Duna" el ${formatearFecha(alas(20))} (120 min). ` +
         "Entre una función y la siguiente tienen que quedar al menos 15 minutos",
     );
+  });
+
+  it("bloquea la fila de la sala antes de leerla y de buscar solapamientos", async () => {
+    await crearFuncion(datos);
+
+    const [plantilla, salaId] = consultaCruda.mock.calls[0] ?? [];
+    expect(plantilla.join("?")).toMatch(/FROM "Sala" WHERE "id" = \? FOR UPDATE/);
+    expect(salaId).toBe(sala.id);
+    const ordenDelBloqueo = consultaCruda.mock.invocationCallOrder[0] ?? Infinity;
+    expect(ordenDelBloqueo).toBeLessThan(buscarSala.mock.invocationCallOrder[0] ?? -1);
+    expect(ordenDelBloqueo).toBeLessThan(buscarFunciones.mock.invocationCallOrder[0] ?? -1);
   });
 
   it("solo mira funciones de la sala indicada", async () => {
