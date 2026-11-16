@@ -7,7 +7,7 @@ import type { Categoria, Clasificacion } from "@/lib/schemas/pelicula";
 export { cn } from "cn";
 
 /** La zona horaria del cine: con ella se muestran y se interpretan los horarios. */
-const ZONA_HORARIA = "America/Argentina/Buenos_Aires";
+export const ZONA_HORARIA = "America/Argentina/Buenos_Aires";
 
 /**
  * Fecha y hora en formato argentino, con la zona horaria explícita: sin ella,
