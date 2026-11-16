@@ -94,7 +94,7 @@ async function postComo(
     headers: { cookie: await cookieDe(rol, email) },
     data: cuerpo,
   });
-  expect(respuesta.status(), `POST ${ruta}: ${await respuesta.text()}`).toBe(201);
+  expect(respuesta.status(), `POST ${ruta}: ${await respuesta.text()}`).toBe(200);
   return (await respuesta.json()) as { id: string };
 }
 
