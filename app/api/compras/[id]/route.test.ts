@@ -109,4 +109,12 @@ describe("GET /api/compras/:id", () => {
     expect(respuesta.status).toBe(403);
     expect(obtener).not.toHaveBeenCalled();
   });
+
+  it("autoriza antes de validar el id: sin sesión y con un id inválido responde 401, no 400", async () => {
+    autorizar.mockRejectedValue(new ErrorNoAutenticado());
+
+    const respuesta = await GET(getRequest(""), contexto(""));
+
+    expect(respuesta.status).toBe(401);
+  });
 });

@@ -14,9 +14,9 @@ import { compraIdSchema } from "@/lib/schemas/compra";
  */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const usuario = await requerirUsuario("USUARIO"); // 401 / 403
     const { id } = await params;
     const compraId = compraIdSchema.parse(id); // 400
-    const usuario = await requerirUsuario("USUARIO"); // 401 / 403
     const compra = await obtenerCompraDeUsuario(compraId, usuario.id); // 404
     return NextResponse.json(compra);
   } catch (error) {
