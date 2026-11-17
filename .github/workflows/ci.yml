@@ -35,3 +35,66 @@ jobs:
 
       - name: Tests
         run: pnpm test
+
+  # Las pruebas de punta a punta (`e2e/`), en paralelo con `verificar`. Corren
+  # contra una Postgres levantada como servicio de este trabajo, igual que la de
+  # `docker-compose.yml` en local: mismo usuario, misma base, mismo puerto del
+  # host (5433). Así `.env.e2e` sirve tal cual y la guarda de base local de
+  # `playwright.config.ts` no necesita ninguna excepción para el CI.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: cinema
+          POSTGRES_PASSWORD: cinema
+          POSTGRES_DB: cinema_e2e
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U cinema -d cinema_e2e"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Generar cliente de Prisma
+        run: pnpm db:generate
+
+      # `pnpm test:e2e` también lo hace (es el `globalSetup`), pero como paso
+      # propio una migración o un seed roto se ve acá y no mezclado con el
+      # build y las pruebas.
+      - name: Preparar la base de pruebas
+        run: pnpm e2e:preparar
+
+      - name: Instalar Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      # Compila la app de producción (`next build` en `.next-e2e`), la levanta
+      # en el 3100 y corre las pruebas: todo lo arma `playwright.config.ts`
+      # (`webServer`), con el mismo comando que en local.
+      - name: Pruebas de punta a punta
+        run: pnpm test:e2e
+
+      - name: Subir el reporte de Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
